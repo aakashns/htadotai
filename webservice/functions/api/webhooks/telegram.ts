@@ -1,3 +1,5 @@
+import { sendTelegramMessage } from "@/lib/telegram";
+
 interface Env {
   TELEGRAM_API_TOKEN: string;
 }
@@ -22,22 +24,7 @@ export async function onRequestPost(context: EventContext<Env, any, any>) {
   const messageText = requestBody.message.text;
 
   // echo the message back
-  const SEND_URL = `https://api.telegram.org/bot${telegramApiToken}/sendMessage`;
-
-  const response: Response = await fetch(SEND_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: `You said: ${messageText}`,
-    }),
-  });
-
-  const responseJson = await response.json();
-
-  console.log("Telegram send message response:", responseJson);
+  await sendTelegramMessage({ telegramApiToken, chat_id: chatId, text: `You said: ${messageText}` })
 
   return new Response(JSON.stringify({ "success": true }));
-}
+} 
