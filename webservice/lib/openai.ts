@@ -29,6 +29,7 @@ export async function generateGPTReply({
     method: "POST",
     headers: {
       Authorization: `Bearer ${openaiApiKey}`,
+      "Content-Type": "application/json",
     },
     body: JSON.stringify(bodyJson),
   });
