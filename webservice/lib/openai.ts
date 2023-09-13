@@ -12,18 +12,16 @@ interface GPTReponseBody {
 interface GenerateGPTReplyArgs {
   openaiApiKey: string;
   messages: GPTMessage[];
-  model?: string;
 }
 
 export async function generateGPTReply({
   openaiApiKey,
   messages,
-  model = "gpt-3.5-turbo",
 }: GenerateGPTReplyArgs) {
   const CHAT_COMPLETIONS_URL = "https://api.openai.com/v1/chat/completions";
 
   const bodyJson = {
-    model,
+    model: "gpt-3.5-turbo",
     messages,
   };
 
