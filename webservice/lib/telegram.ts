@@ -1,10 +1,23 @@
+export interface TelegramWebhookBody {
+  message: {
+    chat: {
+      id: number;
+    };
+    text: string;
+  };
+}
+
 interface SendTelegramMessageArgs {
   telegramApiToken: string;
   chat_id: number;
   text: string;
 }
 
-export async function sendTelegramMessage({ telegramApiToken, chat_id, text }: SendTelegramMessageArgs) {
+export async function sendTelegramMessage({
+  telegramApiToken,
+  chat_id,
+  text,
+}: SendTelegramMessageArgs) {
   const SEND_URL = `https://api.telegram.org/bot${telegramApiToken}/sendMessage`;
 
   const response: Response = await fetch(SEND_URL, {
