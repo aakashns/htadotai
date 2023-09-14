@@ -1,4 +1,4 @@
-interface GPTMessage {
+export interface GPTMessage {
   role: string;
   content: string;
 }
