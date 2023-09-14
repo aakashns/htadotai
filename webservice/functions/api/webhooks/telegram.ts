@@ -27,7 +27,7 @@ export async function onRequestPost(context: EventContext<Env, any, any>) {
   const userMessage = { role: "user", content: messageText, date: Date.now() };
 
   if (
-    ["clear", "/clear", "reset", "/reset"].includes(
+    ["clear", "/clear", "reset", "/reset", "delete", "/delete"].includes(
       messageText.toLowerCase().trim()
     )
   ) {
