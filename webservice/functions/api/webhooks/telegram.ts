@@ -23,12 +23,12 @@ const CLEAR_HISTORY_COMMANDS = [
 ];
 
 interface ProcessTelegramWebhookArgs {
-  context: EventContext<Env, any, any>;
+  env: Env;
+  waitUntil: (promise: Promise<any>) => void;
   requestBody: TelegramWebhookBody;
 }
 
-async function processTelegramWebhook({ context, requestBody }: ProcessTelegramWebhookArgs) {
-  const { env, waitUntil } = context;
+async function processTelegramWebhook({ env, waitUntil, requestBody }: ProcessTelegramWebhookArgs) {
   const telegramApiToken = env.TELEGRAM_API_TOKEN;
   const openaiApiKey = env.OPENAI_API_KEY;
   const conversationsKV = env.HTADOTAI_TELEGRAM_CONVERSATIONS;
@@ -95,7 +95,11 @@ async function processTelegramWebhook({ context, requestBody }: ProcessTelegramW
 }
 
 export async function onRequestPost(context: EventContext<Env, any, any>) {
-  const requestBody = await context.request.json<TelegramWebhookBody>();
-  context.waitUntil(processTelegramWebhook({ context, requestBody }));
+  const { request, env, waitUntil } = context;
+  const headerToken = request.headers.get("X-Telegram-Bot-Api-Secret-Token");
+  if (headerToken === env.TELEGRAM_WEBHOOK_SECRET) {
+    const requestBody = await request.json<TelegramWebhookBody>();
+    waitUntil(processTelegramWebhook({ env, waitUntil, requestBody }));
+  }
   return new Response(JSON.stringify({ success: true }));
 }
