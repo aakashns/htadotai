@@ -82,12 +82,14 @@ async function processTelegramWebhook({
   const finishReason = gptResponseBody.choices[0].finish_reason;
 
   // Send the reply to Telegram
-  await sendTelegramMessage({
+  const telegramResponseBody = await sendTelegramMessage({
     telegramApiToken,
     chat_id: chatId,
     text: gptMessage.content,
     reply_markup: finishReason === "length" ? [{ text: "Continue" }] : [],
   });
+
+  console.log("telegram response body", telegramResponseBody);
 
   // Update the conversation history
   await updateConversation({

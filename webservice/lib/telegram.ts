@@ -28,16 +28,21 @@ export async function sendTelegramMessage({
 }: SendTelegramMessageArgs) {
   const SEND_URL = `https://api.telegram.org/bot${telegramApiToken}/sendMessage`;
 
+  const requestBody: any = {
+    chat_id,
+    text,
+  };
+
+  if (reply_markup && reply_markup.length > 0) {
+    requestBody.reply_markup = reply_markup;
+  }
+
   const response: Response = await fetch(SEND_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      chat_id,
-      text,
-      reply_markup,
-    }),
+    body: JSON.stringify(requestBody),
   });
 
   return response.json();
