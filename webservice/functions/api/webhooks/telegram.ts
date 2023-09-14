@@ -1,10 +1,11 @@
 import { Env } from "@/lib/cloudflare";
-import { GPTMessage, generateGPTReply } from "@/lib/openai";
-import { TelegramWebhookBody, sendTelegramMessage } from "@/lib/telegram";
-
-interface ConversationHistory {
-  messages: GPTMessage[];
-}
+import { generateGPTReply } from "@/lib/openai";
+import {
+  TelegramWebhookBody,
+  getConversation,
+  sendTelegramMessage,
+  updateConversation,
+} from "@/lib/telegram";
 
 const SYSTEM_PROMPT = `You are HTA - a personal AI assistant. Users interact 
 with you via messaging platforms like Telegram. Keep your replies direct and
@@ -15,60 +16,52 @@ export async function onRequestPost(context: EventContext<Env, any, any>) {
   const { request, env } = context;
   const telegramApiToken = env.TELEGRAM_API_TOKEN;
   const openaiApiKey = env.OPENAI_API_KEY;
-  const conversationHistories = env.HTADOTAI_TELEGRAM_CONVERSATIONS;
+  const conversationsKV = env.HTADOTAI_TELEGRAM_CONVERSATIONS;
 
   // Get the Telegram message body
   const requestBody = await request.json<TelegramWebhookBody>();
   const chatId = requestBody.message.chat.id;
-  const chatIdStr = chatId.toString();
   const messageText = requestBody.message.text;
 
   console.log("Received Telegram webhook request", requestBody);
+  const userMessage = { role: "user", content: messageText, date: Date.now() };
 
   // get stored conversation history
-  const conversationStr = await conversationHistories.get(chatIdStr);
-  const conversation = conversationStr
-    ? (JSON.parse(conversationStr) as ConversationHistory)
-    : { messages: [] };
+  const conversation = await getConversation({ conversationsKV, chatId });
 
   console.log("Retrieved Telegram conversation history", conversation);
 
-  // Construct full list of messages
-  const updatedMessages = [
-    ...conversation?.messages,
-    { role: "user", content: messageText },
-  ];
-
   // Send the message to OpenAI
-  const gptReply = await generateGPTReply({
+  const { content: gptMessageText } = await generateGPTReply({
     openaiApiKey,
-    messages: [{ role: "system", content: SYSTEM_PROMPT }, ...updatedMessages],
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      ...conversation?.messages,
+      userMessage,
+    ],
   });
 
-  console.log("Received GPT reply", { gptReply });
+  const gptMessage = {
+    role: "assistant",
+    content: gptMessageText,
+    date: Date.now(),
+  };
 
   // Send the reply to Telegram
   const sendMessageResult = await sendTelegramMessage({
     telegramApiToken,
     chat_id: chatId,
-    text: gptReply.content,
+    text: gptMessage.content,
   });
 
   console.log("Sent Telegram message", { sendMessageResult });
 
   // Update the conversation history
-  const updatedConversation = {
-    messages: [
-      ...updatedMessages,
-      { role: "assistant", content: gptReply.content },
-    ],
-  };
-  await env.HTADOTAI_TELEGRAM_CONVERSATIONS.put(
-    chatId.toString(),
-    JSON.stringify(updatedConversation)
-  );
-
-  console.log("Updated conversation history", { chatId, updatedConversation });
+  await updateConversation({
+    conversationsKV,
+    chatId,
+    newMessages: [userMessage, gptMessage],
+  });
 
   return new Response(JSON.stringify({ success: true }));
 }

@@ -1,6 +1,7 @@
 export interface GPTMessage {
   role: string;
   content: string;
+  date?: number;
 }
 
 interface GPTReponseBody {
@@ -22,7 +23,7 @@ export async function generateGPTReply({
 
   const bodyJson = {
     model: "gpt-3.5-turbo",
-    messages,
+    messages: messages.map(({ role, content }) => ({ role, content })),
   };
 
   const response: Response = await fetch(CHAT_COMPLETIONS_URL, {
