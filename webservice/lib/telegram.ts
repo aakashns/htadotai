@@ -43,7 +43,7 @@ export async function sendTelegramMessage({
 interface SendTelegramAction {
   telegramApiToken: string;
   chat_id: number;
-  status: string;
+  action: string;
 }
 
 export async function sendTelegramAction({
