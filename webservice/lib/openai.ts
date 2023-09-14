@@ -24,6 +24,8 @@ export async function generateGPTReply({
   const bodyJson = {
     model: "gpt-3.5-turbo",
     messages: messages.map(({ role, content }) => ({ role, content })),
+    max_tokens: 200,
+    temperature: 0.8
   };
 
   const response: Response = await fetch(CHAT_COMPLETIONS_URL, {
