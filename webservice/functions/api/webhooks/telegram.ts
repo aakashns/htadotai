@@ -32,7 +32,7 @@ export async function onRequestPost(context: EventContext<Env, any, any>) {
   const chatId = requestBody.message.chat.id;
   const messageText = requestBody.message.text;
 
-  console.log("Received Telegram webhook request", requestBody);
+  // console.log("Received Telegram webhook request", requestBody);
   const userMessage = { role: "user", content: messageText, date: Date.now() };
 
   if (CLEAR_HISTORY_COMMANDS.includes(messageText.toLowerCase().trim())) {
@@ -50,7 +50,7 @@ export async function onRequestPost(context: EventContext<Env, any, any>) {
   // get stored conversation history
   const conversation = await getConversation({ conversationsKV, chatId });
 
-  console.log("Retrieved Telegram conversation history", conversation);
+  // console.log("Retrieved Telegram conversation history", conversation);
 
   // Send the message to OpenAI
   const { content: gptMessageText } = await generateGPTReply({
@@ -75,7 +75,7 @@ export async function onRequestPost(context: EventContext<Env, any, any>) {
     text: gptMessage.content,
   });
 
-  console.log("Sent Telegram message", { sendMessageResult });
+  // console.log("Sent Telegram message", { sendMessageResult });
 
   // Update the conversation history
   await updateConversation({

@@ -37,7 +37,7 @@ export async function generateGPTReply({
 
   const responseJson = await response.json<GPTReponseBody>();
 
-  console.log("GPT response", responseJson);
+  // console.log("GPT response", responseJson);
 
   return responseJson.choices[0].message;
 }
