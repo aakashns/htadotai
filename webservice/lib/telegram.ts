@@ -17,7 +17,7 @@ interface SendTelegramMessageArgs {
   telegramApiToken: string;
   chat_id: number;
   text: string;
-  reply_markup?: { inline_keyboard?: { text: string }[][] };
+  reply_markup?: { inline_keyboard?: { text: string, callback_data: string; }[][] };
 }
 
 export async function sendTelegramMessage({
