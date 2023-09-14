@@ -43,7 +43,7 @@ export async function sendTelegramMessage({
   });
 
   const responseJson = response.json();
-  // console.log("telegram response body", responseJson);
+  console.log("telegram response body", responseJson);
 
   return responseJson;
 }
