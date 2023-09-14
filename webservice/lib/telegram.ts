@@ -42,7 +42,7 @@ export async function sendTelegramMessage({
     body: JSON.stringify(requestBody),
   });
 
-  const responseJson = response.json();
+  const responseJson = await response.json();
   console.log("telegram response body", responseJson);
 
   return responseJson;
