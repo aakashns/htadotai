@@ -12,6 +12,15 @@ with you via messaging platforms like Telegram. Keep your replies direct and
 concise. Break replies into multiple short paragraphs if required, no longer
 than 2-3 sentences each.`;
 
+const CLEAR_HISTORY_COMMANDS = [
+  "clear",
+  "/clear",
+  "reset",
+  "/reset",
+  "delete",
+  "/delete",
+];
+
 export async function onRequestPost(context: EventContext<Env, any, any>) {
   const { request, env } = context;
   const telegramApiToken = env.TELEGRAM_API_TOKEN;
@@ -26,15 +35,9 @@ export async function onRequestPost(context: EventContext<Env, any, any>) {
   console.log("Received Telegram webhook request", requestBody);
   const userMessage = { role: "user", content: messageText, date: Date.now() };
 
-  if (
-    ["clear", "/clear", "reset", "/reset", "delete", "/delete"].includes(
-      messageText.toLowerCase().trim()
-    )
-  ) {
-    // clear conversation
+  if (CLEAR_HISTORY_COMMANDS.includes(messageText.toLowerCase().trim())) {
     await conversationsKV.delete(chatId.toString());
 
-    // send confirmation
     await sendTelegramMessage({
       telegramApiToken,
       chat_id: chatId,
