@@ -34,8 +34,7 @@ export async function onRequestPost(context: EventContext<Env, any, any>) {
   console.log("Retrieved Telegram conversation history", conversation);
 
   // Construct full list of messages
-  const messages = [
-    { role: "system", content: SYSTEM_PROMPT },
+  const updatedMessages = [
     ...conversation?.messages,
     { role: "user", content: messageText },
   ];
@@ -43,7 +42,7 @@ export async function onRequestPost(context: EventContext<Env, any, any>) {
   // Send the message to OpenAI
   const gptReply = await generateGPTReply({
     openaiApiKey,
-    messages,
+    messages: [{ role: "system", content: SYSTEM_PROMPT }, ...updatedMessages],
   });
 
   console.log("Received GPT reply", { gptReply });
@@ -59,7 +58,10 @@ export async function onRequestPost(context: EventContext<Env, any, any>) {
 
   // Update the conversation history
   const updatedConversation = {
-    messages: [...messages, { role: "assistant", content: gptReply.content }],
+    messages: [
+      ...updatedMessages,
+      { role: "assistant", content: gptReply.content },
+    ],
   };
   await env.HTADOTAI_TELEGRAM_CONVERSATIONS.put(
     chatId.toString(),
