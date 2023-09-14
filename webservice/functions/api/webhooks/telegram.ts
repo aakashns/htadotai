@@ -38,7 +38,7 @@ export async function onRequestPost(context: EventContext<Env, any, any>) {
     await sendTelegramMessage({
       telegramApiToken,
       chat_id: chatId,
-      text: "Your conversation history has been cleared.",
+      text: "I've deleted your conversation history. You can now start a fresh conversation!",
     });
 
     return new Response(JSON.stringify({ success: true }));
