@@ -26,6 +26,24 @@ export async function onRequestPost(context: EventContext<Env, any, any>) {
   console.log("Received Telegram webhook request", requestBody);
   const userMessage = { role: "user", content: messageText, date: Date.now() };
 
+  if (
+    ["clear", "/clear", "reset", "/reset"].includes(
+      messageText.toLowerCase().trim()
+    )
+  ) {
+    // clear conversation
+    await conversationsKV.delete(chatId.toString());
+
+    // send confirmation
+    await sendTelegramMessage({
+      telegramApiToken,
+      chat_id: chatId,
+      text: "Your conversation history has been cleared.",
+    });
+
+    return new Response(JSON.stringify({ success: true }));
+  }
+
   // get stored conversation history
   const conversation = await getConversation({ conversationsKV, chatId });
 
