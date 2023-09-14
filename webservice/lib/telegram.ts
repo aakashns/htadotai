@@ -40,6 +40,30 @@ export async function sendTelegramMessage({
   return response.json();
 }
 
+interface SendTelegramAction {
+  telegramApiToken: string;
+  chat_id: number;
+  status: string;
+}
+
+export async function sendTelegramAction({
+  telegramApiToken,
+  chat_id,
+  status,
+}: SendTelegramAction) {
+  const SEND_URL = `https://api.telegram.org/bot${telegramApiToken}/sendChatAction`;
+  await fetch(SEND_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      chat_id,
+      status,
+    }),
+  });
+}
+
 interface GetConversationArgs {
   conversationsKV: KVNamespace;
   chatId: number;

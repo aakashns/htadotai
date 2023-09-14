@@ -3,6 +3,7 @@ import { generateGPTReply } from "@/lib/openai";
 import {
   TelegramWebhookBody,
   getConversation,
+  sendTelegramAction,
   sendTelegramMessage,
   updateConversation,
 } from "@/lib/telegram";
@@ -21,7 +22,7 @@ const CLEAR_HISTORY_COMMANDS = [
   "/delete",
 ];
 
-export async function onRequestPost(context: EventContext<Env, any, any>) {
+async function processTelegramWebhook(context: EventContext<Env, any, any>) {
   const { request, env } = context;
   const telegramApiToken = env.TELEGRAM_API_TOKEN;
   const openaiApiKey = env.OPENAI_API_KEY;
@@ -31,6 +32,11 @@ export async function onRequestPost(context: EventContext<Env, any, any>) {
   const requestBody = await request.json<TelegramWebhookBody>();
   const chatId = requestBody.message.chat.id;
   const messageText = requestBody.message.text;
+
+  // Send "typing..." status
+  context.waitUntil(
+    sendTelegramAction({ telegramApiToken, chat_id: chatId, status: "typing" })
+  );
 
   // console.log("Received Telegram webhook request", requestBody);
   const userMessage = { role: "user", content: messageText, date: Date.now() };
@@ -44,7 +50,7 @@ export async function onRequestPost(context: EventContext<Env, any, any>) {
       text: "I've deleted your conversation history. You can now start a fresh conversation!",
     });
 
-    return new Response(JSON.stringify({ success: true }));
+    return;
   }
 
   // get stored conversation history
@@ -69,13 +75,11 @@ export async function onRequestPost(context: EventContext<Env, any, any>) {
   };
 
   // Send the reply to Telegram
-  const sendMessageResult = await sendTelegramMessage({
+  await sendTelegramMessage({
     telegramApiToken,
     chat_id: chatId,
     text: gptMessage.content,
   });
-
-  // console.log("Sent Telegram message", { sendMessageResult });
 
   // Update the conversation history
   await updateConversation({
@@ -83,6 +87,9 @@ export async function onRequestPost(context: EventContext<Env, any, any>) {
     chatId,
     newMessages: [userMessage, gptMessage],
   });
+}
 
+export async function onRequestPost(context: EventContext<Env, any, any>) {
+  context.waitUntil(processTelegramWebhook(context));
   return new Response(JSON.stringify({ success: true }));
 }
