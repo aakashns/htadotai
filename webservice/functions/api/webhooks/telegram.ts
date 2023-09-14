@@ -40,7 +40,7 @@ async function processTelegramWebhook({ context, requestBody }: ProcessTelegramW
 
   // Send "typing..." status
   waitUntil(
-    sendTelegramAction({ telegramApiToken, chat_id: chatId, status: "typing" })
+    sendTelegramAction({ telegramApiToken, chat_id: chatId, action: "typing" })
   );
 
   // console.log("Received Telegram webhook request", requestBody);

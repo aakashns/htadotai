@@ -49,7 +49,7 @@ interface SendTelegramAction {
 export async function sendTelegramAction({
   telegramApiToken,
   chat_id,
-  status,
+  action,
 }: SendTelegramAction) {
   const SEND_URL = `https://api.telegram.org/bot${telegramApiToken}/sendChatAction`;
   await fetch(SEND_URL, {
@@ -59,7 +59,7 @@ export async function sendTelegramAction({
     },
     body: JSON.stringify({
       chat_id,
-      status,
+      action,
     }),
   });
 }
