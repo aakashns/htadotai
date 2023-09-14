@@ -22,19 +22,24 @@ const CLEAR_HISTORY_COMMANDS = [
   "/delete",
 ];
 
-async function processTelegramWebhook(context: EventContext<Env, any, any>) {
-  const { request, env } = context;
+interface ProcessTelegramWebhookArgs {
+  context: EventContext<Env, any, any>;
+  requestBody: TelegramWebhookBody;
+}
+
+async function processTelegramWebhook({ context, requestBody }: ProcessTelegramWebhookArgs) {
+  const { env, waitUntil } = context;
   const telegramApiToken = env.TELEGRAM_API_TOKEN;
   const openaiApiKey = env.OPENAI_API_KEY;
   const conversationsKV = env.HTADOTAI_TELEGRAM_CONVERSATIONS;
 
   // Get the Telegram message body
-  const requestBody = await request.json<TelegramWebhookBody>();
+  
   const chatId = requestBody.message.chat.id;
   const messageText = requestBody.message.text;
 
   // Send "typing..." status
-  context.waitUntil(
+  waitUntil(
     sendTelegramAction({ telegramApiToken, chat_id: chatId, status: "typing" })
   );
 
@@ -90,6 +95,7 @@ async function processTelegramWebhook(context: EventContext<Env, any, any>) {
 }
 
 export async function onRequestPost(context: EventContext<Env, any, any>) {
-  context.waitUntil(processTelegramWebhook(context));
+  const requestBody = await context.request.json<TelegramWebhookBody>();
+  context.waitUntil(processTelegramWebhook({ context, requestBody }));
   return new Response(JSON.stringify({ success: true }));
 }
