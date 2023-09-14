@@ -17,12 +17,14 @@ interface SendTelegramMessageArgs {
   telegramApiToken: string;
   chat_id: number;
   text: string;
+  reply_markup?: { text: string }[];
 }
 
 export async function sendTelegramMessage({
   telegramApiToken,
   chat_id,
   text,
+  reply_markup = [],
 }: SendTelegramMessageArgs) {
   const SEND_URL = `https://api.telegram.org/bot${telegramApiToken}/sendMessage`;
 
@@ -34,6 +36,7 @@ export async function sendTelegramMessage({
     body: JSON.stringify({
       chat_id,
       text,
+      reply_markup,
     }),
   });
 

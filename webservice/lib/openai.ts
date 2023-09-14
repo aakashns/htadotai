@@ -5,9 +5,20 @@ export interface GPTMessage {
 }
 
 interface GPTReponseBody {
+  id: string;
+  object: "chat.completion";
+  created: number;
+  model: string;
   choices: {
+    index: number;
     message: GPTMessage;
+    finish_reason: string;
   }[];
+  usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
 }
 
 interface GenerateGPTReplyArgs {
@@ -24,8 +35,8 @@ export async function generateGPTReply({
   const bodyJson = {
     model: "gpt-3.5-turbo",
     messages: messages.map(({ role, content }) => ({ role, content })),
-    max_tokens: 200,
-    temperature: 0.8
+    max_tokens: 100,
+    temperature: 0.8,
   };
 
   const response: Response = await fetch(CHAT_COMPLETIONS_URL, {
@@ -37,9 +48,5 @@ export async function generateGPTReply({
     body: JSON.stringify(bodyJson),
   });
 
-  const responseJson = await response.json<GPTReponseBody>();
-
-  // console.log("GPT response", responseJson);
-
-  return responseJson.choices[0].message;
+  return response.json<GPTReponseBody>();
 }

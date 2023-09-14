@@ -28,13 +28,17 @@ interface ProcessTelegramWebhookArgs {
   requestBody: TelegramWebhookBody;
 }
 
-async function processTelegramWebhook({ env, waitUntil, requestBody }: ProcessTelegramWebhookArgs) {
+async function processTelegramWebhook({
+  env,
+  waitUntil,
+  requestBody,
+}: ProcessTelegramWebhookArgs) {
   const telegramApiToken = env.TELEGRAM_API_TOKEN;
   const openaiApiKey = env.OPENAI_API_KEY;
   const conversationsKV = env.HTADOTAI_TELEGRAM_CONVERSATIONS;
 
   // Get the Telegram message body
-  
+
   const chatId = requestBody.message.chat.id;
   const messageText = requestBody.message.text;
 
@@ -64,7 +68,7 @@ async function processTelegramWebhook({ env, waitUntil, requestBody }: ProcessTe
   // console.log("Retrieved Telegram conversation history", conversation);
 
   // Send the message to OpenAI
-  const { content: gptMessageText } = await generateGPTReply({
+  const gptResponseBody = await generateGPTReply({
     openaiApiKey,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
@@ -73,17 +77,16 @@ async function processTelegramWebhook({ env, waitUntil, requestBody }: ProcessTe
     ],
   });
 
-  const gptMessage = {
-    role: "assistant",
-    content: gptMessageText,
-    date: Date.now(),
-  };
+  const gptMessage = gptResponseBody.choices[0].message;
+  gptMessage.date = Date.now();
+  const finishReason = gptResponseBody.choices[0].finish_reason;
 
   // Send the reply to Telegram
   await sendTelegramMessage({
     telegramApiToken,
     chat_id: chatId,
     text: gptMessage.content,
+    reply_markup: finishReason === "length" ? [{ text: "Continue" }] : [],
   });
 
   // Update the conversation history
