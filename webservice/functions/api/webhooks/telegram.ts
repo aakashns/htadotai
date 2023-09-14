@@ -86,10 +86,13 @@ async function processTelegramWebhook({
     telegramApiToken,
     chat_id: chatId,
     text: gptMessage.content,
-    reply_markup: finishReason === "length" ? [{ text: "Continue" }] : [],
+    reply_markup:
+      finishReason === "length"
+        ? { inline_keyboard: [[{ text: "Continue" }]] }
+        : {},
   });
 
-  console.log("telegram response body", telegramResponseBody);
+  
 
   // Update the conversation history
   await updateConversation({

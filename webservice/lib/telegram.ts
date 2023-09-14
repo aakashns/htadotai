@@ -17,25 +17,22 @@ interface SendTelegramMessageArgs {
   telegramApiToken: string;
   chat_id: number;
   text: string;
-  reply_markup?: { text: string }[];
+  reply_markup?: { inline_keyboard?: { text: string }[][] };
 }
 
 export async function sendTelegramMessage({
   telegramApiToken,
   chat_id,
   text,
-  reply_markup = [],
+  reply_markup = {},
 }: SendTelegramMessageArgs) {
   const SEND_URL = `https://api.telegram.org/bot${telegramApiToken}/sendMessage`;
 
-  const requestBody: any = {
+  const requestBody = {
     chat_id,
     text,
+    reply_markup,
   };
-
-  if (reply_markup && reply_markup.length > 0) {
-    requestBody.reply_markup = reply_markup;
-  }
 
   const response: Response = await fetch(SEND_URL, {
     method: "POST",
@@ -45,7 +42,10 @@ export async function sendTelegramMessage({
     body: JSON.stringify(requestBody),
   });
 
-  return response.json();
+  const responseJson = response.json();
+  // console.log("telegram response body", responseJson);
+
+  return responseJson;
 }
 
 interface SendTelegramAction {
