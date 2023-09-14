@@ -15,6 +15,7 @@ export async function onRequestPost(context: EventContext<Env, any, any>) {
   const { request, env } = context;
   const telegramApiToken = env.TELEGRAM_API_TOKEN;
   const openaiApiKey = env.OPENAI_API_KEY;
+  const conversationHistories = env.HTADOTAI_TELEGRAM_CONVERSATIONS;
 
   // Get the Telegram message body
   const requestBody = await request.json<TelegramWebhookBody>();
@@ -25,8 +26,7 @@ export async function onRequestPost(context: EventContext<Env, any, any>) {
   console.log("Received Telegram webhook request", requestBody);
 
   // get stored conversation history
-  const conversationStr =
-    (await env.HTADOTAI_TELEGRAM_CONVERSATIONS.get(chatIdStr)) || "{}";
+  const conversationStr = await conversationHistories.get(chatIdStr);
   const conversation = conversationStr
     ? (JSON.parse(conversationStr) as ConversationHistory)
     : { messages: [] };
