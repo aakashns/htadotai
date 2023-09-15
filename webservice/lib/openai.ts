@@ -21,7 +21,28 @@ interface GPTReponseBody {
   };
 }
 
-export function keepLatestMessages(messages: GPTMessage[] = []): GPTMessage[] {
+export function shouldRateLimit(messages: GPTMessage[]): boolean {
+  const currentTimestamp = Date.now();
+  const oneMinuteAgo = currentTimestamp - 60000; // 60 seconds ago
+
+  let recentMessagesCount = 0;
+
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    // if date is not set, or the message is older than 60 seconds, stop the loop
+    if (!message.date || message.date < oneMinuteAgo) {
+      break;
+    }
+    recentMessagesCount++;
+    if (recentMessagesCount > 10) {
+      return true; // more than 'n' messages in the last 60 seconds
+    }
+  }
+
+  return false; // 'n' or less messages in the last 60 seconds
+}
+
+export function keepLatestMessages(messages: GPTMessage[]): GPTMessage[] {
   const cutoffDate = Date.now() - 3 * 60 * 60 * 1000;
   let totalContentLength = 0;
   let result: GPTMessage[] = [];

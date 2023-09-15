@@ -1,5 +1,9 @@
 import { Env } from "@/lib/cloudflare";
-import { generateGPTReply, keepLatestMessages } from "@/lib/openai";
+import {
+  generateGPTReply,
+  keepLatestMessages,
+  shouldRateLimit,
+} from "@/lib/openai";
 import {
   TelegramWebhookBody,
   getConversation,
@@ -47,8 +51,22 @@ async function processTelegramWebhook({
     sendTelegramAction({ telegramApiToken, chat_id: chatId, action: "typing" })
   );
 
-  const userMessage = { role: "user", content: messageText, date: Date.now() };
+  // get stored conversation history
+  const conversation = await getConversation({ conversationsKV, chatId });
+  const latestMessages = keepLatestMessages(conversation.messages);
 
+  // rate limit if required
+  if (shouldRateLimit(latestMessages)) {
+    await sendTelegramMessage({
+      telegramApiToken,
+      chat_id: chatId,
+      text: "Too many messages received! Please wait for some time and try again.",
+    });
+
+    return;
+  }
+
+  // clear history if the user asked for it
   if (CLEAR_HISTORY_COMMANDS.includes(messageText.toLowerCase().trim())) {
     await conversationsKV.delete(chatId.toString());
 
@@ -61,11 +79,8 @@ async function processTelegramWebhook({
     return;
   }
 
-  // get stored conversation history
-  const conversation = await getConversation({ conversationsKV, chatId });
-  const latestMessages = keepLatestMessages(conversation.messages);
-
   // Send the message to OpenAI
+  const userMessage = { role: "user", content: messageText, date: Date.now() };
   const gptResponseBody = await generateGPTReply({
     openaiApiKey,
     messages: [
