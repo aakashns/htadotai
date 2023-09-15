@@ -78,7 +78,7 @@ export async function generateGPTReply({
   const bodyJson = {
     model: "gpt-3.5-turbo",
     messages: messages.map(({ role, content }) => ({ role, content })),
-    max_tokens: 100,
+    max_tokens: 160,
     temperature: 0.8,
   };
 
