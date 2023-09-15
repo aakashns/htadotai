@@ -91,6 +91,7 @@ async function processTelegramWebhook({
         ? {
             keyboard: [[{ text: "Continue" }]],
             one_time_keyboard: true,
+            resize_keyboard: true,
           }
         : {},
   });

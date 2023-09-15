@@ -20,6 +20,7 @@ interface SendTelegramMessageArgs {
   reply_markup?: {
     keyboard?: { text: string }[][];
     one_time_keyboard?: boolean;
+    resize_keyboard?: boolean;
   };
 }
 
