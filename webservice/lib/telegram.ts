@@ -1,4 +1,4 @@
-import { GPTMessage } from "./openai";
+import { GPTMessage, keepLatestMessages } from "./openai";
 
 interface Conversation {
   messages: GPTMessage[];
@@ -47,7 +47,6 @@ export async function sendTelegramMessage({
   });
 
   const responseJson = await response.json();
-  console.log("telegram response body", responseJson);
 
   return responseJson;
 }
@@ -120,22 +119,11 @@ export async function updateConversation({
   chatId,
   newMessages,
 }: UpdateConversationArgs) {
-  // get stored conversation history
   const conversation = await getConversation({ conversationsKV, chatId });
-
-  // filter out recent messages
-  const threeHoursAgo = Date.now() - 3 * 60 * 60 * 1000;
-  const recentMessages = conversation.messages?.filter(
-    (message) => message.date && message.date > threeHoursAgo
-  );
-
-  // construct new list of messages
-  const updatedMessages = [...recentMessages, ...newMessages];
-  updatedMessages.sort(
-    (message1, message2) => (message1?.date || 0) - (message2?.date || 0)
-  );
-
-  // put the new conversation object back
+  const updatedMessages = keepLatestMessages([
+    ...conversation.messages,
+    ...newMessages,
+  ]);
   await putConversation({
     conversationsKV,
     chatId,

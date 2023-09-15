@@ -1,5 +1,5 @@
 import { Env } from "@/lib/cloudflare";
-import { generateGPTReply } from "@/lib/openai";
+import { generateGPTReply, keepLatestMessages } from "@/lib/openai";
 import {
   TelegramWebhookBody,
   getConversation,
@@ -47,7 +47,6 @@ async function processTelegramWebhook({
     sendTelegramAction({ telegramApiToken, chat_id: chatId, action: "typing" })
   );
 
-  // console.log("Received Telegram webhook request", requestBody);
   const userMessage = { role: "user", content: messageText, date: Date.now() };
 
   if (CLEAR_HISTORY_COMMANDS.includes(messageText.toLowerCase().trim())) {
@@ -64,15 +63,14 @@ async function processTelegramWebhook({
 
   // get stored conversation history
   const conversation = await getConversation({ conversationsKV, chatId });
-
-  // console.log("Retrieved Telegram conversation history", conversation);
+  const latestMessages = keepLatestMessages(conversation.messages);
 
   // Send the message to OpenAI
   const gptResponseBody = await generateGPTReply({
     openaiApiKey,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
-      ...conversation?.messages,
+      ...latestMessages,
       userMessage,
     ],
   });

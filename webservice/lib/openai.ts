@@ -21,6 +21,28 @@ interface GPTReponseBody {
   };
 }
 
+export function keepLatestMessages(messages: GPTMessage[] = []): GPTMessage[] {
+  const cutoffDate = Date.now() - 3 * 60 * 60 * 1000;
+  let totalContentLength = 0;
+  let result: GPTMessage[] = [];
+
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    const contentLength = message.content.length;
+
+    if (!message.date || message.date < cutoffDate) {
+      break;
+    } else if (totalContentLength + contentLength <= 5000) {
+      totalContentLength += contentLength;
+      result.push(message);
+    } else {
+      break;
+    }
+  }
+
+  return result.sort((a, b) => (a.date || 0) - (b.date || 0));
+}
+
 interface GenerateGPTReplyArgs {
   openaiApiKey: string;
   messages: GPTMessage[];
