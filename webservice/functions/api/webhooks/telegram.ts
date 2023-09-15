@@ -89,9 +89,8 @@ async function processTelegramWebhook({
     reply_markup:
       finishReason === "length"
         ? {
-            inline_keyboard: [
-              [{ text: "Continue", callback_data: "Continue" }],
-            ],
+            keyboard: [[{ text: "Continue" }]],
+            one_time_keyboard: true,
           }
         : {},
   });
