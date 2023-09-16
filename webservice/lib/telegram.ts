@@ -1,7 +1,11 @@
-import { GPTMessage, keepLatestMessages } from "./openai";
+import { GPTMessage } from "./openai";
+
+export type ConversationMessage = GPTMessage & {
+  created?: number;
+};
 
 interface Conversation {
-  messages: GPTMessage[];
+  messages: ConversationMessage[];
 }
 
 export interface TelegramWebhookBody {
@@ -22,6 +26,32 @@ interface SendTelegramMessageArgs {
     one_time_keyboard?: boolean;
     resize_keyboard?: boolean;
   };
+}
+
+type ShouldRateLimitOptions = {
+  windowMs: number;
+  maxMessages: number;
+  messages: ConversationMessage[];
+};
+
+export function shouldRateLimit({
+  windowMs,
+  maxMessages,
+  messages,
+}: ShouldRateLimitOptions): boolean {
+  const currentTimestamp = Date.now();
+  let recentMessagesCount = 0;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (!message.created || message.created < currentTimestamp - windowMs) {
+      break;
+    }
+    recentMessagesCount++;
+    if (recentMessagesCount > maxMessages) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export async function sendTelegramMessage({
@@ -49,6 +79,28 @@ export async function sendTelegramMessage({
   const responseJson = await response.json();
 
   return responseJson;
+}
+
+export function keepLatestMessages(messages: ConversationMessage[]) {
+  const cutoffDate = Date.now() - 3 * 60 * 60 * 1000;
+  let totalContentLength = 0;
+  let result = [];
+
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    const contentLength = message.content?.length || 0;
+
+    if (!message.created || message.created < cutoffDate) {
+      break;
+    } else if (totalContentLength + contentLength <= 5000) {
+      totalContentLength += contentLength;
+      result.push(message);
+    } else {
+      break;
+    }
+  }
+
+  return result.sort((a, b) => (a.created || 0) - (b.created || 0));
 }
 
 interface SendTelegramAction {

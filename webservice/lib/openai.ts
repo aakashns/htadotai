@@ -1,8 +1,48 @@
-export interface GPTMessage {
-  role: string;
-  content: string;
-  date?: number;
-}
+export type GPTMessageFunctionCall = {
+  name: string;
+  arguments: string;
+};
+
+export type GPTMessage = {
+  role: "system" | "user" | "assistant" | "function";
+  content: string | null;
+  name?: string;
+  function_call?: GPTMessageFunctionCall;
+};
+
+export type GPTFunctionParameters = {
+  type: string;
+  properties: {
+    [key: string]: {
+      type: string;
+      description: string;
+      enum?: string[];
+    };
+  };
+  required: string[];
+};
+
+export type GPTFunction = {
+  name: string;
+  description: string;
+  parameters: GPTFunctionParameters;
+};
+
+export type GPTRequestBody = {
+  model: string;
+  messages: GPTMessage[];
+  functions?: GPTFunction[];
+  temperature?: number | null;
+  top_p?: number | null;
+  n?: number | null;
+  stream?: boolean | null;
+  stop?: string | string[] | null;
+  max_tokens?: number | null;
+  presence_penalty?: number | null;
+  frequency_penalty?: number | null;
+  logit_bias?: { [token: number]: number };
+  user?: string;
+};
 
 interface GPTReponseBody {
   id: string;
@@ -21,74 +61,47 @@ interface GPTReponseBody {
   };
 }
 
-export function shouldRateLimit(messages: GPTMessage[]): boolean {
-  const currentTimestamp = Date.now();
-  const oneMinuteAgo = currentTimestamp - 60000; // 60 seconds ago
+export function sanitizeMessages(messages: GPTMessage[]): GPTMessage[] {
+  return messages.map(({ role, content, name, function_call }) => {
+    const sanitizedMessage: GPTMessage = {
+      role,
+      content: content ?? null,
+    };
 
-  let recentMessagesCount = 0;
-
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i];
-    // if date is not set, or the message is older than 60 seconds, stop the loop
-    if (!message.date || message.date < oneMinuteAgo) {
-      break;
+    if (name) {
+      sanitizedMessage.name = name;
     }
-    recentMessagesCount++;
-    if (recentMessagesCount > 10) {
-      return true; // more than 'n' messages in the last 60 seconds
+
+    if (function_call) {
+      sanitizedMessage.function_call = {
+        name: function_call.name,
+        arguments: function_call.arguments,
+      };
     }
-  }
 
-  return false; // 'n' or less messages in the last 60 seconds
-}
-
-export function keepLatestMessages(messages: GPTMessage[]): GPTMessage[] {
-  const cutoffDate = Date.now() - 3 * 60 * 60 * 1000;
-  let totalContentLength = 0;
-  let result: GPTMessage[] = [];
-
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i];
-    const contentLength = message.content.length;
-
-    if (!message.date || message.date < cutoffDate) {
-      break;
-    } else if (totalContentLength + contentLength <= 5000) {
-      totalContentLength += contentLength;
-      result.push(message);
-    } else {
-      break;
-    }
-  }
-
-  return result.sort((a, b) => (a.date || 0) - (b.date || 0));
+    return sanitizedMessage;
+  });
 }
 
 interface GenerateGPTReplyArgs {
   openaiApiKey: string;
-  messages: GPTMessage[];
+  apiUrl: string;
+  body: GPTRequestBody;
 }
 
 export async function generateGPTReply({
   openaiApiKey,
-  messages,
+  apiUrl,
+  body,
 }: GenerateGPTReplyArgs) {
-  const CHAT_COMPLETIONS_URL = "https://api.openai.com/v1/chat/completions";
-
-  const bodyJson = {
-    model: "gpt-3.5-turbo",
-    messages: messages.map(({ role, content }) => ({ role, content })),
-    max_tokens: 160,
-    temperature: 0.8,
-  };
-
-  const response: Response = await fetch(CHAT_COMPLETIONS_URL, {
+  body.messages = sanitizeMessages(body.messages);
+  const response: Response = await fetch(apiUrl, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${openaiApiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(bodyJson),
+    body: JSON.stringify(body),
   });
 
   return response.json<GPTReponseBody>();

@@ -1,21 +1,15 @@
-import { Env } from "@/lib/cloudflare";
+import { Config, Context, getConfig } from "@/config";
+import { generateGPTReply } from "@/lib/openai";
 import {
-  generateGPTReply,
-  keepLatestMessages,
-  shouldRateLimit,
-} from "@/lib/openai";
-import {
+  ConversationMessage,
   TelegramWebhookBody,
   getConversation,
+  keepLatestMessages,
   sendTelegramAction,
   sendTelegramMessage,
+  shouldRateLimit,
   updateConversation,
 } from "@/lib/telegram";
-
-const SYSTEM_PROMPT = `You are HTA - a personal AI assistant. Users interact 
-with you via messaging platforms like Telegram. Keep your replies direct and
-concise. Break replies into multiple short paragraphs if required, no longer
-than 2-3 sentences each.`;
 
 const CLEAR_HISTORY_COMMANDS = [
   "clear",
@@ -27,28 +21,29 @@ const CLEAR_HISTORY_COMMANDS = [
 ];
 
 interface ProcessTelegramWebhookArgs {
-  env: Env;
+  config: Config;
   waitUntil: (promise: Promise<any>) => void;
   requestBody: TelegramWebhookBody;
 }
 
 async function processTelegramWebhook({
-  env,
+  config,
   waitUntil,
   requestBody,
 }: ProcessTelegramWebhookArgs) {
-  const telegramApiToken = env.TELEGRAM_API_TOKEN;
-  const openaiApiKey = env.OPENAI_API_KEY;
-  const conversationsKV = env.HTADOTAI_TELEGRAM_CONVERSATIONS;
+  const conversationsKV = config.HTADOTAI_TELEGRAM_CONVERSATIONS;
 
   // Get the Telegram message body
-
   const chatId = requestBody.message.chat.id;
   const messageText = requestBody.message.text;
 
   // Send "typing..." status
   waitUntil(
-    sendTelegramAction({ telegramApiToken, chat_id: chatId, action: "typing" })
+    sendTelegramAction({
+      telegramApiToken: config.TELEGRAM_API_TOKEN,
+      chat_id: chatId,
+      action: "typing",
+    })
   );
 
   // get stored conversation history
@@ -56,9 +51,15 @@ async function processTelegramWebhook({
   const latestMessages = keepLatestMessages(conversation.messages);
 
   // rate limit if required
-  if (shouldRateLimit(latestMessages)) {
+  if (
+    shouldRateLimit({
+      messages: latestMessages,
+      windowMs: config.TELEGRAM_RATE_LIMIT_WINDOW_MS,
+      maxMessages: config.TELEGRAM_RATE_LIMIT_MAX_MESSAGES,
+    })
+  ) {
     await sendTelegramMessage({
-      telegramApiToken,
+      telegramApiToken: config.TELEGRAM_API_TOKEN,
       chat_id: chatId,
       text: "Too many messages received! Please wait for some time and try again.",
     });
@@ -71,7 +72,7 @@ async function processTelegramWebhook({
     await conversationsKV.delete(chatId.toString());
 
     await sendTelegramMessage({
-      telegramApiToken,
+      telegramApiToken: config.TELEGRAM_API_TOKEN,
       chat_id: chatId,
       text: "I've deleted your conversation history. You can now start a fresh conversation!",
     });
@@ -79,26 +80,36 @@ async function processTelegramWebhook({
     return;
   }
 
+  const gptRequestBody = {
+    model: config.TELEGRAM_GPT_MODEL,
+    messages: latestMessages,
+    max_tokens: config.TELEGRAM_GPT_MAX_TOKENS,
+    temperature: config.TELEGRAM_GPT_TEMPERATURE,
+  };
+
   // Send the message to OpenAI
-  const userMessage = { role: "user", content: messageText, date: Date.now() };
+  const userMessage: ConversationMessage = {
+    role: "user",
+    content: messageText,
+    created: Date.now(),
+  };
   const gptResponseBody = await generateGPTReply({
-    openaiApiKey,
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      ...latestMessages,
-      userMessage,
-    ],
+    openaiApiKey: config.OPENAI_API_KEY,
+    apiUrl: config.TELEGRAM_GPT_API_URL,
+    body: gptRequestBody,
   });
 
-  const gptMessage = gptResponseBody.choices[0].message;
-  gptMessage.date = Date.now();
+  const gptMessage = {
+    ...gptResponseBody.choices[0].message,
+    created: Date.now(),
+  };
   const finishReason = gptResponseBody.choices[0].finish_reason;
 
   // Send the reply to Telegram
   await sendTelegramMessage({
-    telegramApiToken,
+    telegramApiToken: config.TELEGRAM_API_TOKEN,
     chat_id: chatId,
-    text: gptMessage.content,
+    text: gptMessage.content ?? "No content in reply",
     reply_markup:
       finishReason === "length"
         ? {
@@ -117,12 +128,13 @@ async function processTelegramWebhook({
   });
 }
 
-export async function onRequestPost(context: EventContext<Env, any, any>) {
-  const { request, env, waitUntil } = context;
+export async function onRequestPost(context: Context) {
+  const config = getConfig(context);
+  const { request, waitUntil } = context;
   const headerToken = request.headers.get("X-Telegram-Bot-Api-Secret-Token");
-  if (headerToken === env.TELEGRAM_WEBHOOK_SECRET) {
+  if (headerToken === config.TELEGRAM_WEBHOOK_SECRET) {
     const requestBody = await request.json<TelegramWebhookBody>();
-    waitUntil(processTelegramWebhook({ env, waitUntil, requestBody }));
+    waitUntil(processTelegramWebhook({ config, waitUntil, requestBody }));
   }
   return new Response(JSON.stringify({ success: true }));
 }
