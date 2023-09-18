@@ -1,5 +1,5 @@
 import { Config, Context, getConfig } from "@/config";
-import { generateGPTReply } from "@/lib/openai";
+import { GPTMessage, generateGPTReply } from "@/lib/openai";
 import {
   ConversationMessage,
   TelegramWebhookBody,
@@ -81,7 +81,12 @@ async function processTelegramWebhook({
   }
 
   // Send the message to OpenAI
-  const userMessage: ConversationMessage = {
+  const systemMessage = {
+    role: "system",
+    content: config.TELEGRAM_GPT_SYSTEM_PROMPT,
+  };
+
+  const userMessage = {
     role: "user",
     content: messageText,
     created: Date.now(),
@@ -89,7 +94,7 @@ async function processTelegramWebhook({
 
   const gptRequestBody = {
     model: config.TELEGRAM_GPT_MODEL,
-    messages: [...latestMessages, userMessage],
+    messages: [systemMessage, ...latestMessages, userMessage],
     max_tokens: config.TELEGRAM_GPT_MAX_TOKENS,
     temperature: config.TELEGRAM_GPT_TEMPERATURE,
   };
