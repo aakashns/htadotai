@@ -80,24 +80,29 @@ async function processTelegramWebhook({
     return;
   }
 
-  const gptRequestBody = {
-    model: config.TELEGRAM_GPT_MODEL,
-    messages: latestMessages,
-    max_tokens: config.TELEGRAM_GPT_MAX_TOKENS,
-    temperature: config.TELEGRAM_GPT_TEMPERATURE,
-  };
-
   // Send the message to OpenAI
   const userMessage: ConversationMessage = {
     role: "user",
     content: messageText,
     created: Date.now(),
   };
+
+  const gptRequestBody = {
+    model: config.TELEGRAM_GPT_MODEL,
+    messages: [...latestMessages, userMessage],
+    max_tokens: config.TELEGRAM_GPT_MAX_TOKENS,
+    temperature: config.TELEGRAM_GPT_TEMPERATURE,
+  };
+
+  console.log({ gptRequestBody });
+
   const gptResponseBody = await generateGPTReply({
     openaiApiKey: config.OPENAI_API_KEY,
     apiUrl: config.TELEGRAM_GPT_API_URL,
     body: gptRequestBody,
   });
+
+  console.log({ gptResponseBody });
 
   const gptMessage = {
     ...gptResponseBody.choices[0].message,
