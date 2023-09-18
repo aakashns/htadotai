@@ -1,4 +1,6 @@
-# 👋🏼 Hi, I'm HTA!
+# 👋🏼 Hi, I'm HTA
+
+I'm your personal AI assistant. 
 
 I am powered by OpenAI's GPT-3.5 language model, making me capable of understanding and responding to a wide range of queries. You can access me conveniently as a Telegram bot.
 
