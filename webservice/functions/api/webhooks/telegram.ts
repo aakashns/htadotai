@@ -109,7 +109,7 @@ async function processTelegramWebhook({
 
   console.log({ gptResponseBody });
 
-  const gptMessage = {
+  const gptMessage: ConversationMessage = {
     ...gptResponseBody.choices[0].message,
     created: Date.now(),
   };
