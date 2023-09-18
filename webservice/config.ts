@@ -25,7 +25,7 @@ const HTADOTAI_TELEGRAM_CONVERSATIONS_KV_STUB = {
     console.log(
       "KV namespace 'HTADOTAI_TELEGRAM_CONVERSATIONS' not connected!"
     );
-    return "[]";
+    return JSON.stringify({ messages: []});
   },
   put: () => {
     console.log(
