@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start": "npx wrangler pages dev ./static --compatibility-flags=\"nodejs_compat\" --compatibility-date=\"2023-09-04\""
+    "start": "npx wrangler pages dev ./public"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20230904.0",
