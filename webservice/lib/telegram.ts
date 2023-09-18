@@ -163,7 +163,7 @@ async function putConversation({
 interface UpdateConversationArgs {
   conversationsKV: KVNamespace;
   chatId: number;
-  newMessages: GPTMessage[];
+  newMessages: ConversationMessage[];
 }
 
 export async function updateConversation({

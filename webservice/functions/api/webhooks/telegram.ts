@@ -81,12 +81,12 @@ async function processTelegramWebhook({
   }
 
   // Send the message to OpenAI
-  const systemMessage = {
+  const systemMessage: GPTMessage = {
     role: "system",
     content: config.TELEGRAM_GPT_SYSTEM_PROMPT,
   };
 
-  const userMessage = {
+  const userMessage:ConversationMessage = {
     role: "user",
     content: messageText,
     created: Date.now(),
