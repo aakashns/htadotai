@@ -7,6 +7,7 @@ export async function onRequestPost(context: Context) {
   const headerToken = request.headers.get("X-Telegram-Bot-Api-Secret-Token");
   if (headerToken === config.TELEGRAM_WEBHOOK_SECRET) {
     const requestBody = await request.json<TelegramWebhookBody>();
+    console.log("Received telegram webhook:", requestBody);
     waitUntil(processTelegramWebhook({ config, waitUntil, requestBody }));
   }
   return new Response(JSON.stringify({ success: true }));
