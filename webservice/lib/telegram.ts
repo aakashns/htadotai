@@ -9,14 +9,27 @@ interface Conversation {
   messages: ConversationMessage[];
 }
 
-export interface TelegramWebhookBody {
-  message: {
-    chat: {
+export type TelegramWebhookBody = {
+  update_id: number;
+  message?: {
+    message_id: number;
+    from?: {
       id: number;
+      is_bot: boolean;
+      first_name: string;
+      last_name?: string;
+      language_code?: string;
     };
-    text: string;
+    chat?: {
+      id: number;
+      type: "private" | "group" | "supergroup" | "channel";
+      first_name?: string;
+      last_name?: string;
+    };
+    date: number;
+    text?: string;
   };
-}
+};
 
 interface SendTelegramMessageArgs {
   telegramApiToken: string;
@@ -205,10 +218,15 @@ export async function processTelegramWebhook({
   requestBody,
 }: ProcessTelegramWebhookArgs) {
   const conversationsKV = config.HTADOTAI_TELEGRAM_CONVERSATIONS;
+  const telegramMessage = requestBody.message;
 
+  if (!telegramMessage || !telegramMessage.chat || !telegramMessage.text) {
+    console.error("Required fields missing in update", { telegramMessage });
+    return;
+  }
   // Get the Telegram message body
-  const chatId = requestBody.message.chat.id;
-  const messageText = requestBody.message.text;
+  const chatId = telegramMessage.chat.id;
+  const messageText = telegramMessage.text;
 
   // Send "typing..." status
   waitUntil(
@@ -272,15 +290,11 @@ export async function processTelegramWebhook({
     temperature: config.TELEGRAM_GPT_TEMPERATURE,
   };
 
-  console.log({ gptRequestBody });
-
   const gptResponseBody = await generateGPTReply({
     openaiApiKey: config.OPENAI_API_KEY,
     apiUrl: config.TELEGRAM_GPT_API_URL,
     body: gptRequestBody,
   });
-
-  console.log({ gptResponseBody });
 
   const gptMessage: ConversationMessage = {
     ...gptResponseBody.choices[0].message,
