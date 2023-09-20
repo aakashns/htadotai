@@ -7,7 +7,7 @@ export async function onRequestPost(context: Context) {
 
   // implement stuff here
   const requestBody = await request.json<WhatsAppWebhookBody>();
-  console.log("WhatsApp webhook received", { requestBody });
+  console.log("WhatsApp webhook received", { url: request.url, requestBody });
 
   return new Response(JSON.stringify({ success: true }));
 }
