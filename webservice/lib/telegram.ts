@@ -1,13 +1,14 @@
-import { Config } from "@/config";
+import { Config, WaitUntil } from "@/config";
 import { GPTMessage, generateGPTReply } from "./openai";
-
-export type ConversationMessage = GPTMessage & {
-  created?: number;
-};
-
-interface Conversation {
-  messages: ConversationMessage[];
-}
+import {
+  ConversationMessage,
+  updateConversationMessages,
+  deleteConversation,
+  getConversation,
+  keepLatestMessages,
+  makeConversationId,
+  shouldRateLimit,
+} from "./conversations";
 
 export type TelegramWebhookBody = {
   update_id: number;
@@ -42,32 +43,6 @@ interface SendTelegramMessageArgs {
   };
 }
 
-type ShouldRateLimitOptions = {
-  windowMs: number;
-  maxMessages: number;
-  messages: ConversationMessage[];
-};
-
-export function shouldRateLimit({
-  windowMs,
-  maxMessages,
-  messages,
-}: ShouldRateLimitOptions): boolean {
-  const currentTimestamp = Date.now();
-  let recentMessagesCount = 0;
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i];
-    if (!message.created || message.created < currentTimestamp - windowMs) {
-      break;
-    }
-    recentMessagesCount++;
-    if (recentMessagesCount > maxMessages) {
-      return true;
-    }
-  }
-  return false;
-}
-
 export async function sendTelegramMessage({
   telegramApiToken,
   chat_id,
@@ -95,28 +70,6 @@ export async function sendTelegramMessage({
   return responseJson;
 }
 
-export function keepLatestMessages(messages: ConversationMessage[]) {
-  const cutoffDate = Date.now() - 3 * 60 * 60 * 1000;
-  let totalContentLength = 0;
-  let result = [];
-
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i];
-    const contentLength = message.content?.length || 0;
-
-    if (!message.created || message.created < cutoffDate) {
-      break;
-    } else if (totalContentLength + contentLength <= 5000) {
-      totalContentLength += contentLength;
-      result.push(message);
-    } else {
-      break;
-    }
-  }
-
-  return result.sort((a, b) => (a.created || 0) - (b.created || 0));
-}
-
 interface SendTelegramAction {
   telegramApiToken: string;
   chat_id: number;
@@ -141,62 +94,6 @@ export async function sendTelegramAction({
   });
 }
 
-interface GetConversationArgs {
-  conversationsKV: KVNamespace;
-  chatId: number;
-}
-
-export async function getConversation({
-  conversationsKV,
-  chatId,
-}: GetConversationArgs) {
-  const chatIdStr = chatId.toString();
-  const conversationStr = await conversationsKV.get(chatIdStr);
-  const conversation = conversationStr
-    ? (JSON.parse(conversationStr) as Conversation)
-    : { messages: [] };
-  return conversation;
-}
-
-interface PutConversationArgs {
-  conversationsKV: KVNamespace;
-  chatId: number;
-  conversation: Conversation;
-}
-
-async function putConversation({
-  conversationsKV,
-  chatId,
-  conversation,
-}: PutConversationArgs) {
-  await conversationsKV.put(chatId.toString(), JSON.stringify(conversation), {
-    expirationTtl: 3 * 60 * 60,
-  });
-}
-
-interface UpdateConversationArgs {
-  conversationsKV: KVNamespace;
-  chatId: number;
-  newMessages: ConversationMessage[];
-}
-
-export async function updateConversation({
-  conversationsKV,
-  chatId,
-  newMessages,
-}: UpdateConversationArgs) {
-  const conversation = await getConversation({ conversationsKV, chatId });
-  const updatedMessages = keepLatestMessages([
-    ...conversation.messages,
-    ...newMessages,
-  ]);
-  await putConversation({
-    conversationsKV,
-    chatId,
-    conversation: { messages: updatedMessages },
-  });
-}
-
 const CLEAR_HISTORY_COMMANDS = [
   "clear",
   "/clear",
@@ -208,7 +105,7 @@ const CLEAR_HISTORY_COMMANDS = [
 
 interface ProcessTelegramWebhookArgs {
   config: Config;
-  waitUntil: (promise: Promise<any>) => void;
+  waitUntil: WaitUntil;
   requestBody: TelegramWebhookBody;
 }
 
@@ -217,7 +114,7 @@ export async function processTelegramWebhook({
   waitUntil,
   requestBody,
 }: ProcessTelegramWebhookArgs) {
-  const conversationsKV = config.HTADOTAI_TELEGRAM_CONVERSATIONS;
+  const conversationsKv = config.CONVERSATIONS_KV;
   const telegramMessage = requestBody.message;
 
   if (!telegramMessage || !telegramMessage.chat || !telegramMessage.text) {
@@ -238,14 +135,19 @@ export async function processTelegramWebhook({
   );
 
   // get stored conversation history
-  const conversation = await getConversation({ conversationsKV, chatId });
-  const latestMessages = keepLatestMessages(conversation.messages);
+  const conversationId = makeConversationId("telegram", chatId);
+  const conversation = await getConversation({
+    conversationsKv,
+    conversationId,
+    expirationTtl: config.TELEGRAM_EXPIRATION_TTL,
+    maxContextChars: config.TELEGRAM_MAX_CONTEXT_CHARS,
+  });
 
   // rate limit if required
   if (
     shouldRateLimit({
-      messages: latestMessages,
-      windowMs: config.TELEGRAM_RATE_LIMIT_WINDOW_MS,
+      messages: conversation.messages,
+      window: config.TELEGRAM_RATE_LIMIT_WINDOW,
       maxMessages: config.TELEGRAM_RATE_LIMIT_MAX_MESSAGES,
     })
   ) {
@@ -260,7 +162,7 @@ export async function processTelegramWebhook({
 
   // clear history if the user asked for it
   if (CLEAR_HISTORY_COMMANDS.includes(messageText.toLowerCase().trim())) {
-    await conversationsKV.delete(chatId.toString());
+    await deleteConversation({ conversationsKv, conversationId });
 
     await sendTelegramMessage({
       telegramApiToken: config.TELEGRAM_API_TOKEN,
@@ -285,7 +187,7 @@ export async function processTelegramWebhook({
 
   const gptRequestBody = {
     model: config.TELEGRAM_GPT_MODEL,
-    messages: [systemMessage, ...latestMessages, userMessage],
+    messages: [systemMessage, ...conversation.messages, userMessage],
     max_tokens: config.TELEGRAM_GPT_MAX_TOKENS,
     temperature: config.TELEGRAM_GPT_TEMPERATURE,
   };
@@ -318,9 +220,11 @@ export async function processTelegramWebhook({
   });
 
   // Update the conversation history
-  await updateConversation({
-    conversationsKV,
-    chatId,
+  await updateConversationMessages({
+    conversationsKv,
+    conversationId,
     newMessages: [userMessage, gptMessage],
+    expirationTtl: config.TELEGRAM_EXPIRATION_TTL,
+    maxContextChars: config.TELEGRAM_MAX_CONTEXT_CHARS,
   });
 }

@@ -1,3 +1,5 @@
+import { Config, WaitUntil } from "@/config";
+
 type WhatsAppMetadata = {
   display_phone_number: string;
   phone_number_id: string;
@@ -38,3 +40,18 @@ export type WhatsAppWebhookBody = {
   }[];
 };
 
+interface ProcessWhatsAppWebhookArgs {
+  config: Config;
+  waitUntil: WaitUntil;
+  requestBody: WhatsAppWebhookBody;
+}
+
+export async function processWhatsAppWebhook({
+  config,
+  waitUntil,
+  requestBody,
+}: ProcessWhatsAppWebhookArgs) {
+  const conversationsKv = config.CONVERSATIONS_KV;
+  if (!conversationsKv) {
+  }
+}
