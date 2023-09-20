@@ -10,7 +10,12 @@ type RequiredEnv = {
 };
 
 const DEFAULT_TELEGRAM_GPT_SYSTEM_PROMPT = `You are HTA - a personal AI assistant. Users 
-interact with you via messaging platforms like Telegram. Keep your replies 
+interact with you via the messaging platform Telegram. Keep your replies 
+direct and concise. Break replies into multiple short paragraphs if required, 
+no longer than 2-3 sentences each.`;
+
+const DEFAULT_WHATSAPP_GPT_SYSTEM_PROMPT = `You are HTA - a personal AI assistant. Users 
+interact with you via the messaging platform WhatsApp. Keep your replies 
 direct and concise. Break replies into multiple short paragraphs if required, 
 no longer than 2-3 sentences each.`;
 
@@ -24,6 +29,16 @@ const optionalEnvDefaults = {
   TELEGRAM_RATE_LIMIT_WINDOW: 60,
   TELEGRAM_RATE_LIMIT_MAX_MESSAGES: 10,
   TELEGRAM_EXPIRATION_TTL: 3 * 60 * 60,
+
+  WHATSAPP_EXPIRATION_TTL: 3 * 60 * 60,
+  WHATSAPP_MAX_CONTEXT_CHARS: 5000,
+  WHATSAPP_RATE_LIMIT_WINDOW: 60,
+  WHATSAPP_RATE_LIMIT_MAX_MESSAGES: 10,
+  WHATSAPP_GPT_SYSTEM_PROMPT: DEFAULT_WHATSAPP_GPT_SYSTEM_PROMPT,
+  WHATSAPP_GPT_MODEL: "gpt-3.5-turbo",
+  WHATSAPP_GPT_TEMPERATURE: 0.8,
+  WHATSAPP_GPT_MAX_TOKENS: 160,
+  WHATSAPP_GPT_API_URL: "https://api.openai.com/v1/chat/completions",
 };
 
 type Env = RequiredEnv & Partial<typeof optionalEnvDefaults>;

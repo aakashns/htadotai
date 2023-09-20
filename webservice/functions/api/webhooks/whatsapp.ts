@@ -20,11 +20,12 @@ export async function onRequestPost(context: Context) {
   const { request, waitUntil } = context;
 
   const requestBody = await request.json<WhatsAppWebhookBody>();
+  const requestValue = requestBody.entry?.[0]?.changes?.[0]?.value;
 
-  if (!requestBody.object || !requestBody.entry?.[0]?.changes?.[0]?.value) {
+  if (!requestBody.object || !requestValue) {
     return new Response("Bad Request", { status: 400 });
   } else {
-    waitUntil(processWhatsAppWebhook({ config, waitUntil, requestBody}))
+    waitUntil(processWhatsAppWebhook({ config, waitUntil, requestValue }));
     return new Response(JSON.stringify({ success: true }));
   }
 }
