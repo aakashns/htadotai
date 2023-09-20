@@ -44,13 +44,10 @@ export function getConfig(context: Context): Config {
   const { env } = context;
   return {
     // required
-    TELEGRAM_API_TOKEN: env.TELEGRAM_API_TOKEN,
-    OPENAI_API_KEY: env.OPENAI_API_KEY,
+    ...env,
     HTADOTAI_TELEGRAM_CONVERSATIONS:
       env.HTADOTAI_TELEGRAM_CONVERSATIONS ??
       HTADOTAI_TELEGRAM_CONVERSATIONS_KV_STUB,
-
-    TELEGRAM_WEBHOOK_SECRET: env.TELEGRAM_WEBHOOK_SECRET,
 
     // optional
     TELEGRAM_GPT_SYSTEM_PROMPT:
