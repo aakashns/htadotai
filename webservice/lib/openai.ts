@@ -65,7 +65,7 @@ export function sanitizeMessages(messages: GPTMessage[]): GPTMessage[] {
   return messages.map(({ role, content, name, function_call }) => {
     const sanitizedMessage: GPTMessage = {
       role,
-      content: content ?? null,
+      content: content,
     };
 
     if (name) {
