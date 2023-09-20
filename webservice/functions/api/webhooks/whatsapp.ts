@@ -4,9 +4,10 @@ import { WhatsAppWebhookBody } from "@/lib/whatsapp";
 export async function onRequestGet(context: Context) {
   const config = getConfig(context);
   const { request, waitUntil } = context;
-  const { searchParams } = new URL(request.url);
+  const { search, searchParams } = new URL(request.url);
 
   console.log("Setting up whatsapp webhook", {
+    search,
     searchParams,
     url: request.url,
   });
