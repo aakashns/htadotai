@@ -90,12 +90,12 @@ export async function sendWhatsAppMessage({
     },
   });
 
-  const responseJson = await response.json<SendWhatsAppResponse>();
-  if (!responseJson.messages?.length) {
-    console.error("Failed to send message", { phoneNumberId, to, messageText });
+  const responseBody = await response.json<SendWhatsAppResponse>();
+  if (!responseBody.messages?.length) {
+    console.error("Failed to send message", { requestBody, responseBody });
   }
 
-  return responseJson;
+  return responseBody;
 }
 
 interface ProcessWhatsAppWebhookArgs {
