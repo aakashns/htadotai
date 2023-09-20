@@ -3,6 +3,9 @@ type RequiredEnv = {
   OPENAI_API_KEY: string;
   TELEGRAM_WEBHOOK_SECRET: string;
   HTADOTAI_TELEGRAM_CONVERSATIONS: KVNamespace;
+
+  WHATSAPP_API_TOKEN: string;
+  WHATSAPP_WEBHOOK_SECRET: string;
 };
 
 const DEFAULT_TELEGRAM_GPT_SYSTEM_PROMPT = `You are HTA - a personal AI assistant. Users 
@@ -25,7 +28,7 @@ const HTADOTAI_TELEGRAM_CONVERSATIONS_KV_STUB = {
     console.log(
       "KV namespace 'HTADOTAI_TELEGRAM_CONVERSATIONS' not connected!"
     );
-    return JSON.stringify({ messages: []});
+    return JSON.stringify({ messages: [] });
   },
   put: () => {
     console.log(
