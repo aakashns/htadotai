@@ -6,6 +6,11 @@ export async function onRequestGet(context: Context) {
   const { request, waitUntil } = context;
   const { searchParams } = new URL(request.url);
 
+  console.log("Setting up whatsapp webhook", {
+    searchParams,
+    url: request.url,
+  });
+
   let mode = searchParams.get("hub.mode");
   let token = searchParams.get("hub.verify_token");
   let challenge = searchParams.get("hub.challenge");
