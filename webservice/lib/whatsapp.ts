@@ -86,8 +86,8 @@ export async function sendWhatsAppMessage({
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${whatsAppApiToken}`,
-      body: JSON.stringify(requestBody),
     },
+    body: JSON.stringify(requestBody),
   });
 
   const responseBody = await response.json<SendWhatsAppResponse>();
