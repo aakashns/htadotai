@@ -20,6 +20,7 @@ export async function onRequestPost(context: Context) {
   const { request, waitUntil } = context;
 
   const requestBody = await request.json<WhatsAppWebhookBody>();
+  console.log("received whatsapp webhook", { requestBody });
   const requestValue = requestBody.entry?.[0]?.changes?.[0]?.value;
 
   if (!requestBody.object || !requestValue) {
