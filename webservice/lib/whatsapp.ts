@@ -181,19 +181,19 @@ async function downloadWhatsAppMedia({
   return response.blob();
 }
 
-type TranscribeAudioMessageArgs = {
+type TranscribeWhatsAppAudioMessageArgs = {
   whatsAppMessage: WhatsAppAudioMessage;
   whatsAppApiToken: string;
   transcribeApiUrl: string;
   openaiApiKey: string;
 };
 
-async function transcribeAudioMessage({
+async function transcribeWhatsAppAudioMessage({
   whatsAppApiToken,
   whatsAppMessage,
   transcribeApiUrl,
   openaiApiKey,
-}: TranscribeAudioMessageArgs) {
+}: TranscribeWhatsAppAudioMessageArgs) {
   const mediaId = whatsAppMessage.audio.id;
   const { url } = await getWhatsAppMedia({
     whatsAppApiToken,
@@ -203,7 +203,7 @@ async function transcribeAudioMessage({
     whatsAppApiToken,
     mediaUrl: url,
   });
-  return await transcribeAudio({
+  return transcribeAudio({
     transcribeApiUrl,
     openaiApiKey: openaiApiKey,
     audioBlob,
@@ -336,7 +336,7 @@ export async function processWhatsAppWebhook({
   if (whatsAppMessage.type === "text") {
     messageText = whatsAppMessage.text.body;
   } else if (whatsAppMessage.type === "audio") {
-    const { text } = await transcribeAudioMessage({
+    const { text } = await transcribeWhatsAppAudioMessage({
       whatsAppApiToken,
       whatsAppMessage,
       transcribeApiUrl: config.WHATSAPP_TRANSCRIBE_AUDIO_URL,

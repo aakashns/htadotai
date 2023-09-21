@@ -1,5 +1,5 @@
 import { Config, WaitUntil } from "@/config";
-import { GPTMessage, generateGPTReply } from "./openai";
+import { GPTMessage, generateGPTReply, transcribeAudio } from "./openai";
 import {
   ConversationMessage,
   updateConversationMessages,
@@ -9,26 +9,31 @@ import {
   shouldRateLimit,
 } from "./conversations";
 
+type TelegramMessage = {
+  message_id: number;
+  from?: {
+    id: number;
+    is_bot: boolean;
+    first_name: string;
+    last_name?: string;
+    language_code?: string;
+  };
+  chat?: {
+    id: number;
+    type: "private" | "group" | "supergroup" | "channel";
+    first_name?: string;
+    last_name?: string;
+  };
+  date: number;
+  text?: string;
+  voice?: {
+    file_id: string;
+  };
+};
+
 export type TelegramWebhookBody = {
   update_id: number;
-  message?: {
-    message_id: number;
-    from?: {
-      id: number;
-      is_bot: boolean;
-      first_name: string;
-      last_name?: string;
-      language_code?: string;
-    };
-    chat?: {
-      id: number;
-      type: "private" | "group" | "supergroup" | "channel";
-      first_name?: string;
-      last_name?: string;
-    };
-    date: number;
-    text?: string;
-  };
+  message?: TelegramMessage;
 };
 
 interface SendTelegramMessageArgs {
@@ -93,6 +98,49 @@ export async function sendTelegramAction({
   });
 }
 
+type GetTelegramFileInfoArgs = {
+  telegramApiToken: string;
+  telegramFileId: string;
+};
+
+async function getTelegramFileInfo({
+  telegramApiToken,
+  telegramFileId,
+}: GetTelegramFileInfoArgs) {
+  const url = `https://api.telegram.org/bot${telegramApiToken}/getFile?file_id=${telegramFileId}`;
+  const response = await fetch(url);
+  return response.json<{ file_path: string }>();
+}
+
+type TranscribeTelegramVoiceMessageArgs = {
+  telegramFileId: string;
+  telegramApiToken: string;
+  transcribeApiUrl: string;
+  openaiApiKey: string;
+};
+
+async function transcribeTelegramVoiceMessage({
+  telegramApiToken,
+  telegramFileId,
+  transcribeApiUrl,
+  openaiApiKey,
+}: TranscribeTelegramVoiceMessageArgs) {
+  const { file_path } = await getTelegramFileInfo({
+    telegramApiToken,
+    telegramFileId,
+  });
+  const audioResponse = await fetch(
+    `https://api.telegram.org/file/bot${telegramApiToken}/${file_path}`
+  );
+  const audioBlob = await audioResponse.blob();
+  return transcribeAudio({
+    transcribeApiUrl,
+    openaiApiKey: openaiApiKey,
+    audioBlob,
+    language: "en",
+  });
+}
+
 const CLEAR_HISTORY_COMMANDS = [
   "clear",
   "/clear",
@@ -115,14 +163,12 @@ export async function processTelegramWebhook({
 }: ProcessTelegramWebhookArgs) {
   const conversationsKv = config.CONVERSATIONS_KV;
   const telegramMessage = requestBody.message;
+  const chatId = telegramMessage?.chat?.id;
 
-  if (!telegramMessage || !telegramMessage.chat || !telegramMessage.text) {
+  if (!chatId) {
     console.error("Required fields missing in update", { telegramMessage });
     return;
   }
-  // Get the Telegram message body
-  const chatId = telegramMessage.chat.id;
-  const messageText = telegramMessage.text;
 
   // Send "typing..." status
   waitUntil(
@@ -159,16 +205,35 @@ export async function processTelegramWebhook({
     return;
   }
 
+  let messageText;
+
+  if (telegramMessage.text) {
+    messageText = telegramMessage.text;
+  } else if (telegramMessage.voice) {
+    const { text } = await transcribeTelegramVoiceMessage({
+      telegramApiToken: config.TELEGRAM_API_TOKEN,
+      telegramFileId: telegramMessage.voice.file_id,
+      transcribeApiUrl: config.WHATSAPP_TRANSCRIBE_AUDIO_URL,
+      openaiApiKey: config.OPENAI_API_KEY,
+    });
+    messageText = text;
+  } else {
+    await sendTelegramMessage({
+      telegramApiToken: config.TELEGRAM_API_TOKEN,
+      chat_id: chatId,
+      text: "Sorry, I can't understand messages of this type.",
+    });
+    return;
+  }
+
   // clear history if the user asked for it
   if (CLEAR_HISTORY_COMMANDS.includes(messageText.toLowerCase().trim())) {
     await deleteConversation({ conversationsKv, conversationId });
-
     await sendTelegramMessage({
       telegramApiToken: config.TELEGRAM_API_TOKEN,
       chat_id: chatId,
       text: "I've deleted your conversation history. You can now start a fresh conversation!",
     });
-
     return;
   }
 
