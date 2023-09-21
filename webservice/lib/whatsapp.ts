@@ -6,7 +6,7 @@ import {
   shouldRateLimit,
   updateConversationMessages,
 } from "./conversations";
-import { GPTMessage, generateGPTReply } from "./openai";
+import { GPTMessage, generateGPTReply, transcribeAudio } from "./openai";
 
 type WhatsAppMetadata = {
   display_phone_number: string;
@@ -20,15 +20,48 @@ type WhatsAppContact = {
   wa_id: string;
 };
 
-type WhatsAppMessage = {
+type WhatsAppMedia = {
+  id: string;
+  link: string;
+  caption: string;
+  filename: string;
+};
+
+type BaseWhatsAppMessage = {
   from: string;
   id: string;
   timestamp: number;
+};
+
+type WhatsAppTextMessage = BaseWhatsAppMessage & {
+  type: "text";
   text: {
     body: string;
   };
-  type: string;
 };
+
+type WhatsAppAudioMessage = BaseWhatsAppMessage & {
+  type: "audio";
+
+  audio: WhatsAppMedia;
+};
+
+type WhatsAppOtherMessage = BaseWhatsAppMessage & {
+  type:
+    | "contacts"
+    | "document"
+    | "image"
+    | "interactive"
+    | "location"
+    | "sticker"
+    | "unknown"
+    | "template";
+};
+
+type WhatsAppMessage =
+  | WhatsAppTextMessage
+  | WhatsAppAudioMessage
+  | WhatsAppOtherMessage;
 
 type WhatsAppChangeValue = {
   messaging_product: "whatsapp";
@@ -90,6 +123,84 @@ async function markWhatsAppMessageRead({
   return responseBody;
 }
 
+type GetWhatsAppMediaArgs = {
+  whatsAppApiToken: string;
+  mediaId: string;
+};
+
+type GetWhatsAppMediaResponse = {
+  messaging_product: "whatsapp";
+  url: string;
+  mime_type: string;
+  sha256: string;
+  file_size: string;
+  id: string;
+};
+
+async function getWhatsAppMedia({
+  whatsAppApiToken,
+  mediaId,
+}: GetWhatsAppMediaArgs) {
+  const GET_MEDIA_URL = `https://graph.facebook.com/v16.0/${mediaId}`;
+  const response = await fetch(GET_MEDIA_URL, {
+    headers: {
+      Authorization: `Bearer ${whatsAppApiToken}`,
+    },
+  });
+  const responseBody = await response.json<GetWhatsAppMediaResponse>();
+  return responseBody;
+}
+
+type DownloadWhatsAppMediaArgs = {
+  whatsAppApiToken: string;
+  mediaUrl: string;
+};
+
+async function downloadWhatsAppMedia({
+  whatsAppApiToken,
+  mediaUrl,
+}: DownloadWhatsAppMediaArgs) {
+  const response = await fetch(mediaUrl, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${whatsAppApiToken}`,
+      "User-Agent": "Node.js/14.17.0",
+    },
+  });
+
+  return response.blob();
+}
+
+type TranscribeAudioMessageArgs = {
+  whatsAppMessage: WhatsAppAudioMessage;
+  whatsAppApiToken: string;
+  transcribeApiUrl: string;
+  openaiApiKey: string;
+};
+
+async function transcribeAudioMessage({
+  whatsAppApiToken,
+  whatsAppMessage,
+  transcribeApiUrl,
+  openaiApiKey,
+}: TranscribeAudioMessageArgs) {
+  const mediaId = whatsAppMessage.audio.id;
+  const { url } = await getWhatsAppMedia({
+    whatsAppApiToken,
+    mediaId,
+  });
+  const audioBlob = await downloadWhatsAppMedia({
+    whatsAppApiToken,
+    mediaUrl: url,
+  });
+  return await transcribeAudio({
+    transcribeApiUrl,
+    openaiApiKey: openaiApiKey,
+    audioBlob,
+    language: "en",
+  });
+}
+
 type SendWhatsAppMessageArgs = {
   whatsAppApiToken: string;
   phoneNumberId: string;
@@ -142,18 +253,19 @@ export async function processWhatsAppWebhook({
 }: ProcessWhatsAppWebhookArgs) {
   const conversationsKv = config.CONVERSATIONS_KV;
   const phoneNumberId = requestValue.metadata.phone_number_id;
-  const whatsappMessage = requestValue.messages?.[0];
+  const whatsAppMessage = requestValue.messages?.[0];
+  const whatsAppApiToken = config.WHATSAPP_API_TOKEN;
 
-  if (!whatsappMessage) {
+  if (!whatsAppMessage) {
     return;
   }
 
   // Mark message as read
   waitUntil(
     markWhatsAppMessageRead({
-      whatsAppApiToken: config.WHATSAPP_API_TOKEN,
+      whatsAppApiToken,
       phoneNumberId,
-      messageId: whatsappMessage.id,
+      messageId: whatsAppMessage.id,
     })
   );
 
@@ -176,27 +288,38 @@ export async function processWhatsAppWebhook({
   ) {
     // Send rate limited message
     await sendWhatsAppMessage({
-      whatsAppApiToken: config.WHATSAPP_API_TOKEN,
+      whatsAppApiToken,
       phoneNumberId: phoneNumberId,
-      to: whatsappMessage.from,
+      to: whatsAppMessage.from,
       messageText:
         "Too many messages received! Please wait for some time and try again.",
     });
     return;
   }
 
-  if (whatsappMessage.type !== "text") {
+  let messageText: string;
+
+  if (whatsAppMessage.type == "text") {
+    messageText = whatsAppMessage.text.body;
+  } else if (whatsAppMessage.type == "audio") {
+    const { text } = await transcribeAudioMessage({
+      whatsAppApiToken,
+      whatsAppMessage,
+      transcribeApiUrl: config.WHATSAPP_TRANSCRIBE_AUDIO_URL,
+      openaiApiKey: config.OPENAI_API_KEY,
+    });
+    messageText = text;
+  } else {
     // Mention message type is not supported
     await sendWhatsAppMessage({
-      whatsAppApiToken: config.WHATSAPP_API_TOKEN,
+      whatsAppApiToken,
       phoneNumberId: phoneNumberId,
-      to: whatsappMessage.from,
-      messageText: `I can't understand messages of the type "${whatsappMessage.type}"`,
+      to: whatsAppMessage.from,
+      messageText: `I can't understand messages of the type "${whatsAppMessage.type}"`,
     });
     return;
   }
 
-  // Send the message to OpenAI
   const systemMessage: GPTMessage = {
     role: "system",
     content: config.WHATSAPP_GPT_SYSTEM_PROMPT,
@@ -204,7 +327,7 @@ export async function processWhatsAppWebhook({
 
   const userMessage: ConversationMessage = {
     role: "user",
-    content: whatsappMessage.text.body,
+    content: messageText,
     created: Date.now(),
   };
 
@@ -226,11 +349,10 @@ export async function processWhatsAppWebhook({
     created: Date.now(),
   };
 
-  // send message to WhatsApp
   await sendWhatsAppMessage({
-    whatsAppApiToken: config.WHATSAPP_API_TOKEN,
+    whatsAppApiToken,
     phoneNumberId: phoneNumberId,
-    to: whatsappMessage.from,
+    to: whatsAppMessage.from,
     messageText: gptMessage.content ?? "No content in reply",
   });
 

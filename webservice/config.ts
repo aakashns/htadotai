@@ -39,6 +39,8 @@ const optionalEnvDefaults = {
   WHATSAPP_GPT_TEMPERATURE: 0.8,
   WHATSAPP_GPT_MAX_TOKENS: 160,
   WHATSAPP_GPT_API_URL: "https://api.openai.com/v1/chat/completions",
+  WHATSAPP_TRANSCRIBE_AUDIO_URL:
+    "https://api.openai.com/v1/audio/transcriptions",
 };
 
 type Env = RequiredEnv & Partial<typeof optionalEnvDefaults>;

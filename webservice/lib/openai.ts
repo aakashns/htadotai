@@ -61,7 +61,6 @@ interface GPTReponseBody {
   };
 }
 
-
 export function sanitizeMessages(messages: GPTMessage[]): GPTMessage[] {
   return messages.map(({ role, content, name, function_call }) => {
     const sanitizedMessage: GPTMessage = {
@@ -108,5 +107,45 @@ export async function generateGPTReply({
   return response.json<GPTReponseBody>();
 }
 
+type TranscribeAudioArgs = {
+  transcribeApiUrl: string;
+  openaiApiKey: string;
+  audioBlob: Blob;
+  language?: string;
+  prompt?: string;
+};
 
+type TranscribeAudioResponse = {
+  text: string;
+};
 
+export async function transcribeAudio({
+  transcribeApiUrl,
+  openaiApiKey,
+  audioBlob,
+  language,
+  prompt,
+}: TranscribeAudioArgs) {
+  const formData = new FormData();
+  formData.append("file", audioBlob, "recording.ogg");
+  formData.append("model", "whisper-1");
+  if (language) {
+    formData.append("language", language);
+  }
+  if (prompt) {
+    formData.append("prompt", prompt);
+  }
+
+  const response = await fetch(transcribeApiUrl, {
+    method: "POST",
+    body: formData,
+    headers: {
+      Authorization: `Bearer ${openaiApiKey}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return response.json<TranscribeAudioResponse>();
+}
