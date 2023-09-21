@@ -146,7 +146,11 @@ export async function processWhatsAppWebhook({
 }: ProcessWhatsAppWebhookArgs) {
   const conversationsKv = config.CONVERSATIONS_KV;
   const phoneNumberId = requestValue.metadata.phone_number_id;
-  const whatsappMessage = requestValue.messages[0];
+  const whatsappMessage = requestValue.messages?.[0];
+
+  if (!whatsappMessage) {
+    return;
+  }
 
   // Mark message as read
   waitUntil(
