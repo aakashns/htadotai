@@ -42,8 +42,18 @@ type WhatsAppTextMessage = BaseWhatsAppMessage & {
 
 type WhatsAppAudioMessage = BaseWhatsAppMessage & {
   type: "audio";
-
   audio: WhatsAppMedia;
+};
+
+type InteractiveWhatsAppMessage = BaseWhatsAppMessage & {
+  type: "interactive";
+  interactive: {
+    type: "button_reply";
+    button_reply: {
+      id: string;
+      title: string;
+    };
+  };
 };
 
 type WhatsAppOtherMessage = BaseWhatsAppMessage & {
@@ -51,7 +61,6 @@ type WhatsAppOtherMessage = BaseWhatsAppMessage & {
     | "contacts"
     | "document"
     | "image"
-    | "interactive"
     | "location"
     | "sticker"
     | "unknown"
@@ -61,6 +70,7 @@ type WhatsAppOtherMessage = BaseWhatsAppMessage & {
 type WhatsAppMessage =
   | WhatsAppTextMessage
   | WhatsAppAudioMessage
+  | InteractiveWhatsAppMessage
   | WhatsAppOtherMessage;
 
 type WhatsAppChangeValue = {
@@ -323,9 +333,9 @@ export async function processWhatsAppWebhook({
 
   let messageText: string;
 
-  if (whatsAppMessage.type == "text") {
+  if (whatsAppMessage.type === "text") {
     messageText = whatsAppMessage.text.body;
-  } else if (whatsAppMessage.type == "audio") {
+  } else if (whatsAppMessage.type === "audio") {
     const { text } = await transcribeAudioMessage({
       whatsAppApiToken,
       whatsAppMessage,
@@ -333,6 +343,8 @@ export async function processWhatsAppWebhook({
       openaiApiKey: config.OPENAI_API_KEY,
     });
     messageText = text;
+  } else if (whatsAppMessage.type === "interactive") {
+    messageText = whatsAppMessage.interactive.button_reply.id;
   } else {
     // Mention message type is not supported
     await sendWhatsAppMessage({
@@ -341,7 +353,7 @@ export async function processWhatsAppWebhook({
       to: whatsAppMessage.from,
       messageText: `Sorry, I can't understand ${whatsAppMessage.type} messages!`,
     });
-    console.log("Unsupported whatsapp message received", { whatsAppMessage });
+    console.error("Unsupported whatsapp message received", { whatsAppMessage });
     return;
   }
 
