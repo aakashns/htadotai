@@ -315,7 +315,7 @@ export async function processWhatsAppWebhook({
       whatsAppApiToken,
       phoneNumberId: phoneNumberId,
       to: whatsAppMessage.from,
-      messageText: `I can't understand messages of the type "${whatsAppMessage.type}"`,
+      messageText: `I can't understand messages of the type "${whatsAppMessage.type}".`,
     });
     return;
   }
