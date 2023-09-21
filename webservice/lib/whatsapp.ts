@@ -71,19 +71,23 @@ async function markWhatsAppMessageRead({
   messageId,
 }: MarkWhatsAppMessageReadArgs) {
   const MARK_READ_URL = `https://graph.facebook.com/v16.0/${phoneNumberId}/messages`;
+  const requestBody = {
+    messaging_product: "whatsapp",
+    status: "read",
+    message_id: messageId,
+  };
 
-  return fetch(MARK_READ_URL, {
+  const response = await fetch(MARK_READ_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${whatsAppApiToken}`,
     },
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      status: "read",
-      message_id: messageId,
-    }),
+    body: JSON.stringify(requestBody),
   });
+
+  const responseBody = await response.json();
+  console.log("Mark as read response", { requestBody, responseBody });
 }
 
 type SendWhatsAppMessageArgs = {
