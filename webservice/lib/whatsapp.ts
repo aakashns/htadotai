@@ -206,6 +206,7 @@ type SendWhatsAppMessageArgs = {
   phoneNumberId: string;
   to: string;
   messageText: string;
+  replyButtons?: string[];
 };
 
 async function sendWhatsAppMessage({
@@ -213,15 +214,38 @@ async function sendWhatsAppMessage({
   phoneNumberId,
   to,
   messageText,
+  replyButtons,
 }: SendWhatsAppMessageArgs) {
   const SEND_URL = `https://graph.facebook.com/v16.0/${phoneNumberId}/messages`;
 
-  const requestBody = {
-    messaging_product: "whatsapp",
-    to: to,
-    type: "text",
-    text: { body: messageText },
-  };
+  let requestBody;
+
+  if (replyButtons?.length) {
+    requestBody = {
+      messaging_product: "whatsapp",
+      to: to,
+      type: "interactive",
+      interactive: {
+        type: "button",
+        body: {
+          text: messageText,
+        },
+        action: {
+          buttons: replyButtons.map((buttonText) => ({
+            type: "reply",
+            reply: { id: buttonText, title: buttonText },
+          })),
+        },
+      },
+    };
+  } else {
+    requestBody = {
+      messaging_product: "whatsapp",
+      to: to,
+      type: "text",
+      text: { body: messageText },
+    };
+  }
 
   const response = await fetch(SEND_URL, {
     method: "POST",
@@ -348,12 +372,15 @@ export async function processWhatsAppWebhook({
     ...gptResponseBody.choices[0].message,
     created: Date.now(),
   };
+  const finishReason = gptResponseBody.choices[0].finish_reason;
 
   await sendWhatsAppMessage({
     whatsAppApiToken,
     phoneNumberId: phoneNumberId,
     to: whatsAppMessage.from,
     messageText: gptMessage.content ?? "No content in reply",
+    replyButtons:
+      finishReason === "length" ? ["Continue", "Ok, thanks!"] : undefined,
   });
 
   await updateConversationMessages({
