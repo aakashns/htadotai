@@ -87,11 +87,7 @@ async function markWhatsAppMessageRead({
   });
 
   const responseBody = await response.json();
-  console.log("Mark as read response", {
-    requestBody,
-    responseBody,
-    url: MARK_READ_URL,
-  });
+  return responseBody;
 }
 
 type SendWhatsAppMessageArgs = {
