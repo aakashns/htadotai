@@ -59,6 +59,33 @@ type SendWhatsAppResponse = {
   }[];
 };
 
+type MarkWhatsAppMessageReadArgs = {
+  whatsAppApiToken: string;
+  phoneNumberId: string;
+  messageId: string;
+};
+
+async function markWhatsAppMessageRead({
+  whatsAppApiToken,
+  phoneNumberId,
+  messageId,
+}: MarkWhatsAppMessageReadArgs) {
+  const MARK_READ_URL = `https://graph.facebook.com/v16.0/${phoneNumberId}/messages`;
+
+  return fetch(MARK_READ_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${whatsAppApiToken}`,
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      status: "read",
+      message_id: messageId,
+    }),
+  });
+}
+
 type SendWhatsAppMessageArgs = {
   whatsAppApiToken: string;
   phoneNumberId: string;
@@ -66,7 +93,7 @@ type SendWhatsAppMessageArgs = {
   messageText: string;
 };
 
-export async function sendWhatsAppMessage({
+async function sendWhatsAppMessage({
   whatsAppApiToken,
   phoneNumberId,
   to,
@@ -113,9 +140,16 @@ export async function processWhatsAppWebhook({
   const phoneNumberId = requestValue.metadata.phone_number_id;
   const whatsappMessage = requestValue.messages[0];
 
-  // TODO - mark message as read
+  // Mark message as read
+  waitUntil(
+    markWhatsAppMessageRead({
+      whatsAppApiToken: config.WHATSAPP_API_TOKEN,
+      phoneNumberId,
+      messageId: whatsappMessage.id,
+    })
+  );
 
-  // get conversation history
+  // Get conversation history
   const conversationId = makeConversationId("whatsapp", phoneNumberId);
   const conversation = await getConversation({
     conversationsKv,
@@ -124,7 +158,7 @@ export async function processWhatsAppWebhook({
     maxContextChars: config.WHATSAPP_MAX_CONTEXT_CHARS,
   });
 
-  // rate limit if required
+  // Rate limit if required
   if (
     shouldRateLimit({
       messages: conversation.messages,
@@ -132,7 +166,7 @@ export async function processWhatsAppWebhook({
       maxMessages: config.WHATSAPP_RATE_LIMIT_MAX_MESSAGES,
     })
   ) {
-    // send rate limited message
+    // Send rate limited message
     await sendWhatsAppMessage({
       whatsAppApiToken: config.WHATSAPP_API_TOKEN,
       phoneNumberId: phoneNumberId,
@@ -144,7 +178,7 @@ export async function processWhatsAppWebhook({
   }
 
   if (whatsappMessage.type !== "text") {
-    // mention message type is not supported
+    // Mention message type is not supported
     await sendWhatsAppMessage({
       whatsAppApiToken: config.WHATSAPP_API_TOKEN,
       phoneNumberId: phoneNumberId,
