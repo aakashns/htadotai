@@ -210,6 +210,7 @@ export async function processTelegramWebhook({
   if (telegramMessage.text) {
     messageText = telegramMessage.text;
   } else if (telegramMessage.voice) {
+    console.log("Telegram voice note received", { telegramMessage });
     const { text } = await transcribeTelegramVoiceMessage({
       telegramApiToken: config.TELEGRAM_API_TOKEN,
       telegramFileId: telegramMessage.voice.file_id,
