@@ -339,8 +339,9 @@ export async function processWhatsAppWebhook({
       whatsAppApiToken,
       phoneNumberId: phoneNumberId,
       to: whatsAppMessage.from,
-      messageText: `I can't understand messages of the type "${whatsAppMessage.type}".`,
+      messageText: `Sorry, I can't understand ${whatsAppMessage.type} messages!`,
     });
+    console.log("Unsupported whatsapp message received", { whatsAppMessage });
     return;
   }
 
@@ -379,8 +380,7 @@ export async function processWhatsAppWebhook({
     phoneNumberId: phoneNumberId,
     to: whatsAppMessage.from,
     messageText: gptMessage.content ?? "No content in reply",
-    replyButtons:
-      finishReason === "length" ? ["Continue", "Ok, thanks!"] : undefined,
+    replyButtons: finishReason === "length" ? ["Continue"] : undefined,
   });
 
   await updateConversationMessages({
