@@ -146,6 +146,7 @@ async function transcribeTelegramVoiceMessage({
     telegramFileId,
   });
   const { file_path } = fileInfoResponse;
+  console.log("getFile response", fileInfoResponse);
   const fileUrl = `https://api.telegram.org/file/bot${telegramApiToken}/${file_path}`;
   const audioResponse = await fetch(fileUrl);
   const audioResponseJson = await audioResponse.json();
