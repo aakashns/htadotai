@@ -129,15 +129,12 @@ async function transcribeTelegramVoiceMessage({
     telegramApiToken,
     telegramFileId,
   });
-  console.log("Voice note file info", fileInfoResponse);
   const { file_path } = fileInfoResponse;
   const fileUrl = `https://api.telegram.org/file/bot${telegramApiToken}/${file_path}`;
-  const audioResponse = await fetch(fileUrl, {
-    headers: {
-      "User-Agent": "Node.js/14.17.0",
-    },
+  const audioResponse = await fetch(fileUrl);
+  const audioBlob = new Blob([await audioResponse.blob()], {
+    type: "audio/ogg",
   });
-  const audioBlob = await audioResponse.blob();
   return transcribeAudio({
     transcribeApiUrl,
     openaiApiKey: openaiApiKey,
