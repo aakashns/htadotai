@@ -176,6 +176,7 @@ export async function processTelegramWebhook({
   requestBody,
 }: ProcessTelegramWebhookArgs) {
   const conversationsKv = config.CONVERSATIONS_KV;
+  const telegramApiToken = config.TELEGRAM_API_TOKEN;
   const telegramMessage = requestBody.message;
   const chatId = telegramMessage?.chat?.id;
 
@@ -187,7 +188,7 @@ export async function processTelegramWebhook({
   // Send "typing..." status
   waitUntil(
     sendTelegramAction({
-      telegramApiToken: config.TELEGRAM_API_TOKEN,
+      telegramApiToken,
       chat_id: chatId,
       action: "typing",
     })
@@ -211,7 +212,7 @@ export async function processTelegramWebhook({
     })
   ) {
     await sendTelegramMessage({
-      telegramApiToken: config.TELEGRAM_API_TOKEN,
+      telegramApiToken,
       chat_id: chatId,
       text: "Too many messages received! Please wait for some time and try again.",
     });
@@ -225,19 +226,24 @@ export async function processTelegramWebhook({
     messageText = telegramMessage.text;
   } else if (telegramMessage.voice) {
     const transcription = await transcribeTelegramVoiceMessage({
-      telegramApiToken: config.TELEGRAM_API_TOKEN,
+      telegramApiToken,
       telegramFileId: telegramMessage.voice.file_id,
       transcribeApiUrl: config.WHATSAPP_TRANSCRIBE_AUDIO_URL,
       openaiApiKey: config.OPENAI_API_KEY,
     });
     if (!transcription) {
+      await sendTelegramMessage({
+        telegramApiToken,
+        chat_id: chatId,
+        text: "Sorry, I couldn't understand that message. Please try again!",
+      });
       return;
     } else {
       messageText = transcription.text;
     }
   } else {
     await sendTelegramMessage({
-      telegramApiToken: config.TELEGRAM_API_TOKEN,
+      telegramApiToken,
       chat_id: chatId,
       text: "Sorry, I can't understand messages of this type.",
     });
@@ -248,7 +254,7 @@ export async function processTelegramWebhook({
   if (CLEAR_HISTORY_COMMANDS.includes(messageText.toLowerCase().trim())) {
     await deleteConversation({ conversationsKv, conversationId });
     await sendTelegramMessage({
-      telegramApiToken: config.TELEGRAM_API_TOKEN,
+      telegramApiToken,
       chat_id: chatId,
       text: "I've deleted your conversation history. You can now start a fresh conversation!",
     });
@@ -288,7 +294,7 @@ export async function processTelegramWebhook({
 
   // Send the reply to Telegram
   await sendTelegramMessage({
-    telegramApiToken: config.TELEGRAM_API_TOKEN,
+    telegramApiToken,
     chat_id: chatId,
     text: gptMessage.content ?? "No content in reply",
     reply_markup:
