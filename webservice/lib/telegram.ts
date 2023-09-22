@@ -125,13 +125,18 @@ async function transcribeTelegramVoiceMessage({
   transcribeApiUrl,
   openaiApiKey,
 }: TranscribeTelegramVoiceMessageArgs) {
-  const { file_path } = await getTelegramFileInfo({
+  const fileInfoResponse = await getTelegramFileInfo({
     telegramApiToken,
     telegramFileId,
   });
-  const audioResponse = await fetch(
-    `https://api.telegram.org/file/bot${telegramApiToken}/${file_path}`
-  );
+  console.log("Voice note file info", fileInfoResponse);
+  const { file_path } = fileInfoResponse;
+  const fileUrl = `https://api.telegram.org/file/bot${telegramApiToken}/${file_path}`;
+  const audioResponse = await fetch(fileUrl, {
+    headers: {
+      "User-Agent": "Node.js/14.17.0",
+    },
+  });
   const audioBlob = await audioResponse.blob();
   return transcribeAudio({
     transcribeApiUrl,
