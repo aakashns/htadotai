@@ -149,19 +149,17 @@ async function transcribeTelegramVoiceMessage({
   const fileUrl = `https://api.telegram.org/file/bot${telegramApiToken}/${file_path}`;
   const audioResponse = await fetch(fileUrl);
   const audioResponseJson = await audioResponse.json();
-  const audioBlob = await audioResponse.blob();
-  const audioDataUrl = blobToDataUrl(audioBlob);
   console.log("Audio Response", {
     "Content-Type": audioResponse.headers.get("Content-Type"),
-    audioDataUrl: (await audioDataUrl).substring(0, 30),
     audioResponseJson,
   });
-  return transcribeAudio({
-    transcribeApiUrl,
-    openaiApiKey: openaiApiKey,
-    audioBlob,
-    language: "en",
-  });
+  // return transcribeAudio({
+  //   transcribeApiUrl,
+  //   openaiApiKey: openaiApiKey,
+  //   audioBlob,
+  //   language: "en",
+  // });
+  return { text: "come back later" };
 }
 
 const CLEAR_HISTORY_COMMANDS = [
