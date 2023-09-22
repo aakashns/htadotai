@@ -103,29 +103,23 @@ type GetTelegramFileInfoArgs = {
   telegramFileId: string;
 };
 
+type GetTelegramFileInfoResponse = {
+  ok: boolean;
+  result?: {
+    file_id: string;
+    file_unique_id: string;
+    file_size: number;
+    file_path: string;
+  };
+};
+
 async function getTelegramFileInfo({
   telegramApiToken,
   telegramFileId,
 }: GetTelegramFileInfoArgs) {
   const url = `https://api.telegram.org/bot${telegramApiToken}/getFile?file_id=${telegramFileId}`;
   const response = await fetch(url);
-  return response.json<{ file_path: string }>();
-}
-
-function arrayBufferToBase64(buffer: ArrayBuffer) {
-  var binary = "";
-  var bytes = new Uint8Array(buffer);
-  var len = bytes.byteLength;
-  for (var i = 0; i < len; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
-
-async function blobToDataUrl(blob: Blob) {
-  const arrayBuffer = await blob.arrayBuffer();
-  const base64 = arrayBufferToBase64(arrayBuffer);
-  return `data:${blob.type};base64,${base64}`;
+  return response.json<GetTelegramFileInfoResponse>();
 }
 
 type TranscribeTelegramVoiceMessageArgs = {
@@ -145,28 +139,20 @@ async function transcribeTelegramVoiceMessage({
     telegramApiToken,
     telegramFileId,
   });
-  const { file_path } = fileInfoResponse;
-  console.log("getFile response", fileInfoResponse);
-  const fileUrl = `https://api.telegram.org/file/bot${telegramApiToken}/${file_path}`;
-  const audioResponse = await fetch(fileUrl, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36",
-    },
+  const filePath = fileInfoResponse.result?.file_path;
+  if (!filePath) {
+    console.error("Cannot download voice note file", { fileInfoResponse });
+    return;
+  }
+  const fileUrl = `https://api.telegram.org/file/bot${telegramApiToken}/${filePath}`;
+  const audioResponse = await fetch(fileUrl);
+  const audioBlob = await audioResponse.blob();
+  return transcribeAudio({
+    transcribeApiUrl,
+    openaiApiKey: openaiApiKey,
+    audioBlob,
+    language: "en",
   });
-  const audioResponseJson = await audioResponse.json();
-  console.log("Audio Response", {
-    fileUrl,
-    "Content-Type": audioResponse.headers.get("Content-Type"),
-    audioResponseJson,
-  });
-  // return transcribeAudio({
-  //   transcribeApiUrl,
-  //   openaiApiKey: openaiApiKey,
-  //   audioBlob,
-  //   language: "en",
-  // });
-  return { text: "come back later" };
 }
 
 const CLEAR_HISTORY_COMMANDS = [
@@ -239,13 +225,17 @@ export async function processTelegramWebhook({
     messageText = telegramMessage.text;
   } else if (telegramMessage.voice) {
     console.log("Telegram voice note received", { telegramMessage });
-    const { text } = await transcribeTelegramVoiceMessage({
+    const transcription = await transcribeTelegramVoiceMessage({
       telegramApiToken: config.TELEGRAM_API_TOKEN,
       telegramFileId: telegramMessage.voice.file_id,
       transcribeApiUrl: config.WHATSAPP_TRANSCRIBE_AUDIO_URL,
       openaiApiKey: config.OPENAI_API_KEY,
     });
-    messageText = text;
+    if (!transcription) {
+      return;
+    } else {
+      messageText = transcription.text;
+    }
   } else {
     await sendTelegramMessage({
       telegramApiToken: config.TELEGRAM_API_TOKEN,
