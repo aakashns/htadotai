@@ -112,6 +112,22 @@ async function getTelegramFileInfo({
   return response.json<{ file_path: string }>();
 }
 
+function arrayBufferToBase64(buffer: ArrayBuffer) {
+  var binary = "";
+  var bytes = new Uint8Array(buffer);
+  var len = bytes.byteLength;
+  for (var i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+async function blobToDataUrl(blob: Blob) {
+  const arrayBuffer = await blob.arrayBuffer();
+  const base64 = arrayBufferToBase64(arrayBuffer);
+  return `data:${blob.type};base64,${base64}`;
+}
+
 type TranscribeTelegramVoiceMessageArgs = {
   telegramFileId: string;
   telegramApiToken: string;
@@ -132,9 +148,11 @@ async function transcribeTelegramVoiceMessage({
   const { file_path } = fileInfoResponse;
   const fileUrl = `https://api.telegram.org/file/bot${telegramApiToken}/${file_path}`;
   const audioResponse = await fetch(fileUrl);
-  console.log("Audio Response headers", { headers: audioResponse.headers });
-  const audioBlob = new Blob([await audioResponse.blob()], {
-    type: "audio/ogg",
+  const audioBlob = await audioResponse.blob();
+  const audioDataUrl = blobToDataUrl(audioBlob);
+  console.log("Audio Response", {
+    "Content-Type": audioResponse.headers.get("Content-Type"),
+    audioDataUrl: (await audioDataUrl).substring(0, 30),
   });
   return transcribeAudio({
     transcribeApiUrl,
