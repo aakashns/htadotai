@@ -148,9 +148,15 @@ async function transcribeTelegramVoiceMessage({
   const { file_path } = fileInfoResponse;
   console.log("getFile response", fileInfoResponse);
   const fileUrl = `https://api.telegram.org/file/bot${telegramApiToken}/${file_path}`;
-  const audioResponse = await fetch(fileUrl);
+  const audioResponse = await fetch(fileUrl, {
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36",
+    },
+  });
   const audioResponseJson = await audioResponse.json();
   console.log("Audio Response", {
+    fileUrl,
     "Content-Type": audioResponse.headers.get("Content-Type"),
     audioResponseJson,
   });
