@@ -40,12 +40,6 @@ export type WhatsAppWebhookBody = {
   entry?: { id: string; changes?: { value: WhatsAppChangeValue; field: "messages" }[] }[];
 };
 
-type SendWhatsAppResponse = {
-  messaging_product: "whatsapp";
-  contacts: { input: string; wa_id: string }[];
-  messages?: { id: string }[];
-};
-
 type MarkWhatsAppMessageReadArgs = { whatsAppApiToken: string; phoneNumberId: string; messageId: string };
 
 async function markWhatsAppMessageRead({ whatsAppApiToken, phoneNumberId, messageId }: MarkWhatsAppMessageReadArgs) {
@@ -58,14 +52,7 @@ async function markWhatsAppMessageRead({ whatsAppApiToken, phoneNumberId, messag
 
 type GetWhatsAppMediaArgs = { whatsAppApiToken: string; mediaId: string };
 
-type GetWhatsAppMediaResponse = {
-  messaging_product: "whatsapp";
-  url: string;
-  mime_type: string;
-  sha256: string;
-  file_size: string;
-  id: string;
-};
+type GetWhatsAppMediaResponse = { messaging_product: "whatsapp"; url: string; mime_type: string; id: string };
 
 async function getWhatsAppMedia({ whatsAppApiToken, mediaId }: GetWhatsAppMediaArgs) {
   const GET_MEDIA_URL = `https://graph.facebook.com/v16.0/${mediaId}`;
@@ -80,7 +67,7 @@ async function downloadWhatsAppMedia({ whatsAppApiToken, mediaUrl }: DownloadWha
   return response.blob();
 }
 
-type SendWhatsAppMessageArgs = {
+type SWAMArgs = {
   whatsAppApiToken: string;
   phoneNumberId: string;
   to: string;
@@ -88,59 +75,26 @@ type SendWhatsAppMessageArgs = {
   replyButtons?: string[];
 };
 
-async function sendWhatsAppMessage({
-  whatsAppApiToken,
-  phoneNumberId,
-  to,
-  messageText,
-  replyButtons,
-}: SendWhatsAppMessageArgs) {
+type SendWhatsAppResponse = {
+  messaging_product: "whatsapp";
+  contacts: { input: string; wa_id: string }[];
+  messages?: { id: string }[];
+};
+
+async function sendWhatsAppMessage({ whatsAppApiToken, phoneNumberId, to, messageText, replyButtons }: SWAMArgs) {
   const SEND_URL = `https://graph.facebook.com/v16.0/${phoneNumberId}/messages`;
   let requestBody;
   if (replyButtons?.length) {
     const buttons = replyButtons.map((buttonText) => ({ type: "reply", reply: { id: buttonText, title: buttonText } }));
-    requestBody = {
-      messaging_product: "whatsapp",
-      to: to,
-      type: "interactive",
-      interactive: { type: "button", body: { text: messageText }, action: { buttons } },
-    };
+    const interactive = { type: "button", body: { text: messageText }, action: { buttons } };
+    requestBody = { messaging_product: "whatsapp", to: to, type: "interactive", interactive };
   } else {
     requestBody = { messaging_product: "whatsapp", to: to, type: "text", text: { body: messageText } };
   }
-
-  const response = await fetch(SEND_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${whatsAppApiToken}` },
-    body: JSON.stringify(requestBody),
-  });
-
-  const responseBody = await response.json<SendWhatsAppResponse>();
-  if (!responseBody.messages?.length) {
-    console.error("Failed to send message", { requestBody, responseBody });
-  }
-  return responseBody;
+  const headers = { "Content-Type": "application/json", Authorization: `Bearer ${whatsAppApiToken}` };
+  const response = await fetch(SEND_URL, { method: "POST", headers, body: JSON.stringify(requestBody) });
+  return await response.json<SendWhatsAppResponse>();
 }
-
-type GetWhatsAppGptReplyArgs = {
-  systemPrompt: string;
-  messages: GPTMessage[];
-  max_tokens: number;
-  temperature: number;
-  model: string;
-  openaiApiKey: string;
-  gptApiUrl: string;
-};
-
-export async function getWhatsAppGptReply({
-  systemPrompt,
-  messages,
-  max_tokens,
-  temperature,
-  model,
-  openaiApiKey,
-  gptApiUrl,
-}: GetWhatsAppGptReplyArgs) {}
 
 type GetWhatsAppMessageTextArgs = {
   whatsAppMessage: WhatsAppMessage;
@@ -174,7 +128,6 @@ export async function processWhatsAppWebhook({ config, waitUntil, requestValue }
   const phoneNumberId = requestValue.metadata.phone_number_id;
   const whatsAppMessage = requestValue.messages?.[0];
   const whatsAppApiToken = config.WHATSAPP_API_TOKEN;
-
   if (!whatsAppMessage) {
     return;
   }
