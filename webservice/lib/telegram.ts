@@ -3,7 +3,6 @@ import { GPTMessage, generateGPTReply, transcribeAudio } from "./openai";
 import {
   ConversationMessage,
   updateConversationMessages,
-  deleteConversation,
   getConversation,
   makeConversationId,
   shouldRateLimit,
@@ -11,170 +10,79 @@ import {
 
 type TelegramMessage = {
   message_id: number;
-  from?: {
-    id: number;
-    is_bot: boolean;
-    first_name: string;
-    last_name?: string;
-    language_code?: string;
-  };
-  chat?: {
-    id: number;
-    type: "private" | "group" | "supergroup" | "channel";
-    first_name?: string;
-    last_name?: string;
-  };
+  from?: { id: number; is_bot: boolean; first_name: string; last_name?: string; language_code?: string };
+  chat?: { id: number; type: "private" | "group" | "supergroup" | "channel"; first_name?: string; last_name?: string };
   date: number;
   text?: string;
-  voice?: {
-    file_id: string;
-  };
+  voice?: { file_id: string };
 };
 
-export type TelegramWebhookBody = {
-  update_id: number;
-  message?: TelegramMessage;
-};
+export type TelegramWebhookBody = { update_id: number; message?: TelegramMessage };
 
-interface SendTelegramMessageArgs {
-  telegramApiToken: string;
-  chat_id: number;
-  text: string;
-  reply_markup?: {
-    keyboard?: { text: string }[][];
-    one_time_keyboard?: boolean;
-    resize_keyboard?: boolean;
-  };
-}
+type ReplyMarkup = { keyboard?: { text: string }[][]; one_time_keyboard?: boolean; resize_keyboard?: boolean };
 
-export async function sendTelegramMessage({
-  telegramApiToken,
-  chat_id,
-  text,
-  reply_markup = {},
-}: SendTelegramMessageArgs) {
-  const SEND_URL = `https://api.telegram.org/bot${telegramApiToken}/sendMessage`;
+type STMArgs = { telegramApiToken: string; chat_id: number; text: string; reply_markup?: ReplyMarkup };
 
-  const requestBody = {
-    chat_id,
-    text,
-    reply_markup,
-  };
-
-  const response: Response = await fetch(SEND_URL, {
+export async function sendTelegramMessage({ telegramApiToken, chat_id, text, reply_markup = {} }: STMArgs) {
+  const response: Response = await fetch(`https://api.telegram.org/bot${telegramApiToken}/sendMessage`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(requestBody),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id, text, reply_markup }),
   });
-
-  const responseJson = await response.json();
-
-  return responseJson;
+  return response.json();
 }
 
-interface SendTelegramAction {
-  telegramApiToken: string;
-  chat_id: number;
-  action: string;
-}
+type SendTelegramAction = { telegramApiToken: string; chat_id: number; action: string };
 
-export async function sendTelegramAction({
-  telegramApiToken,
-  chat_id,
-  action,
-}: SendTelegramAction) {
-  const SEND_URL = `https://api.telegram.org/bot${telegramApiToken}/sendChatAction`;
-  await fetch(SEND_URL, {
+export async function sendTelegramAction({ telegramApiToken, chat_id, action }: SendTelegramAction) {
+  await fetch(`https://api.telegram.org/bot${telegramApiToken}/sendChatAction`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      chat_id,
-      action,
-    }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id, action }),
   });
 }
 
-type GetTelegramFileInfoArgs = {
-  telegramApiToken: string;
-  telegramFileId: string;
-};
+type GetTelegramFileInfoArgs = { telegramApiToken: string; telegramFileId: string };
 
 type GetTelegramFileInfoResponse = {
   ok: boolean;
-  result?: {
-    file_id: string;
-    file_unique_id: string;
-    file_size: number;
-    file_path: string;
-  };
+  result?: { file_id: string; file_unique_id: string; file_size: number; file_path: string };
 };
 
-async function getTelegramFileInfo({
-  telegramApiToken,
-  telegramFileId,
-}: GetTelegramFileInfoArgs) {
-  const url = `https://api.telegram.org/bot${telegramApiToken}/getFile?file_id=${telegramFileId}`;
-  const response = await fetch(url);
+async function getTelegramFileInfo({ telegramApiToken, telegramFileId }: GetTelegramFileInfoArgs) {
+  const response = await fetch(`https://api.telegram.org/bot${telegramApiToken}/getFile?file_id=${telegramFileId}`);
   return response.json<GetTelegramFileInfoResponse>();
 }
 
-type TranscribeTelegramVoiceMessageArgs = {
-  telegramFileId: string;
+type GTMTArgs = {
+  telegramMessage: TelegramMessage;
   telegramApiToken: string;
   transcribeApiUrl: string;
   openaiApiKey: string;
 };
 
-async function transcribeTelegramVoiceMessage({
-  telegramApiToken,
-  telegramFileId,
-  transcribeApiUrl,
-  openaiApiKey,
-}: TranscribeTelegramVoiceMessageArgs) {
-  const fileInfoResponse = await getTelegramFileInfo({
-    telegramApiToken,
-    telegramFileId,
-  });
-  const filePath = fileInfoResponse.result?.file_path;
-  if (!filePath) {
-    console.error("Cannot download voice note file", { fileInfoResponse });
-    return;
+async function getTelegramMessageText({ telegramApiToken, telegramMessage, transcribeApiUrl, openaiApiKey }: GTMTArgs) {
+  if (telegramMessage.text) {
+    return telegramMessage.text;
+  } else if (telegramMessage.voice) {
+    const telegramFileId = telegramMessage.voice.file_id;
+    const fileInfoResponse = await getTelegramFileInfo({ telegramApiToken, telegramFileId });
+    const filePath = fileInfoResponse.result?.file_path;
+    if (!filePath) {
+      console.error("Cannot download voice note file", { fileInfoResponse });
+      return;
+    }
+    const fileUrl = `https://api.telegram.org/file/bot${telegramApiToken}/${filePath}`;
+    const audioResponse = await fetch(fileUrl);
+    const audioBlob = await audioResponse.blob();
+    const { text } = await transcribeAudio({ transcribeApiUrl, openaiApiKey: openaiApiKey, audioBlob, language: "en" });
+    return text;
   }
-  const fileUrl = `https://api.telegram.org/file/bot${telegramApiToken}/${filePath}`;
-  const audioResponse = await fetch(fileUrl);
-  const audioBlob = await audioResponse.blob();
-  return transcribeAudio({
-    transcribeApiUrl,
-    openaiApiKey: openaiApiKey,
-    audioBlob,
-    language: "en",
-  });
 }
 
-const CLEAR_HISTORY_COMMANDS = [
-  "clear",
-  "/clear",
-  "reset",
-  "/reset",
-  "delete",
-  "/delete",
-];
+type PTWArgs = { config: Config; waitUntil: WaitUntil; requestBody: TelegramWebhookBody };
 
-interface ProcessTelegramWebhookArgs {
-  config: Config;
-  waitUntil: WaitUntil;
-  requestBody: TelegramWebhookBody;
-}
-
-export async function processTelegramWebhook({
-  config,
-  waitUntil,
-  requestBody,
-}: ProcessTelegramWebhookArgs) {
+export async function processTelegramWebhook({ config, waitUntil, requestBody }: PTWArgs) {
   const conversationsKv = config.CONVERSATIONS_KV;
   const telegramApiToken = config.TELEGRAM_API_TOKEN;
   const telegramMessage = requestBody.message;
@@ -185,16 +93,8 @@ export async function processTelegramWebhook({
     return;
   }
 
-  // Send "typing..." status
-  waitUntil(
-    sendTelegramAction({
-      telegramApiToken,
-      chat_id: chatId,
-      action: "typing",
-    })
-  );
+  waitUntil(sendTelegramAction({ telegramApiToken, chat_id: chatId, action: "typing" }));
 
-  // get stored conversation history
   const conversationId = makeConversationId("telegram", chatId);
   const conversation = await getConversation({
     conversationsKv,
@@ -203,45 +103,25 @@ export async function processTelegramWebhook({
     maxContextChars: config.TELEGRAM_MAX_CONTEXT_CHARS,
   });
 
-  // rate limit if required
-  if (
-    shouldRateLimit({
-      messages: conversation.messages,
-      window: config.TELEGRAM_RATE_LIMIT_WINDOW,
-      maxMessages: config.TELEGRAM_RATE_LIMIT_MAX_MESSAGES,
-    })
-  ) {
-    await sendTelegramMessage({
-      telegramApiToken,
-      chat_id: chatId,
-      text: "Too many messages received! Please wait for some time and try again.",
-    });
-
+  const isRateLimited = shouldRateLimit({
+    messages: conversation.messages,
+    window: config.TELEGRAM_RATE_LIMIT_WINDOW,
+    maxMessages: config.TELEGRAM_RATE_LIMIT_MAX_MESSAGES,
+  });
+  if (isRateLimited) {
+    const rateLimitedText = "Too many messages received! Please wait for some time and try again.";
+    await sendTelegramMessage({ telegramApiToken, chat_id: chatId, text: rateLimitedText });
     return;
   }
 
-  let messageText;
+  const messageText = await getTelegramMessageText({
+    telegramApiToken,
+    telegramMessage,
+    transcribeApiUrl: config.TELEGRAM_TRANSCRIBE_AUDIO_URL,
+    openaiApiKey: config.OPENAI_API_KEY,
+  });
 
-  if (telegramMessage.text) {
-    messageText = telegramMessage.text;
-  } else if (telegramMessage.voice) {
-    const transcription = await transcribeTelegramVoiceMessage({
-      telegramApiToken,
-      telegramFileId: telegramMessage.voice.file_id,
-      transcribeApiUrl: config.WHATSAPP_TRANSCRIBE_AUDIO_URL,
-      openaiApiKey: config.OPENAI_API_KEY,
-    });
-    if (!transcription) {
-      await sendTelegramMessage({
-        telegramApiToken,
-        chat_id: chatId,
-        text: "Sorry, I couldn't understand that message. Please try again!",
-      });
-      return;
-    } else {
-      messageText = transcription.text;
-    }
-  } else {
+  if (!messageText) {
     await sendTelegramMessage({
       telegramApiToken,
       chat_id: chatId,
@@ -250,64 +130,35 @@ export async function processTelegramWebhook({
     return;
   }
 
-  // clear history if the user asked for it
-  if (CLEAR_HISTORY_COMMANDS.includes(messageText.toLowerCase().trim())) {
-    await deleteConversation({ conversationsKv, conversationId });
-    await sendTelegramMessage({
-      telegramApiToken,
-      chat_id: chatId,
-      text: "I've deleted your conversation history. You can now start a fresh conversation!",
-    });
-    return;
-  }
-
-  // Send the message to OpenAI
-  const systemMessage: GPTMessage = {
-    role: "system",
-    content: config.TELEGRAM_GPT_SYSTEM_PROMPT,
-  };
-
-  const userMessage: ConversationMessage = {
-    role: "user",
-    content: messageText,
-    created: Date.now(),
-  };
-
+  const userMessage: ConversationMessage = { role: "user", content: messageText, created: Date.now() };
+  const systemMessage: GPTMessage = { role: "system", content: config.TELEGRAM_GPT_SYSTEM_PROMPT };
   const gptRequestBody = {
     model: config.TELEGRAM_GPT_MODEL,
     messages: [systemMessage, ...conversation.messages, userMessage],
     max_tokens: config.TELEGRAM_GPT_MAX_TOKENS,
     temperature: config.TELEGRAM_GPT_TEMPERATURE,
   };
-
   const gptResponseBody = await generateGPTReply({
     openaiApiKey: config.OPENAI_API_KEY,
-    apiUrl: config.TELEGRAM_GPT_API_URL,
+    gptApiUrl: config.TELEGRAM_GPT_API_URL,
     body: gptRequestBody,
   });
-
-  const gptMessage: ConversationMessage = {
-    ...gptResponseBody.choices[0].message,
-    created: Date.now(),
-  };
+  const gptMessage: ConversationMessage = { ...gptResponseBody.choices[0].message, created: Date.now() };
   const finishReason = gptResponseBody.choices[0].finish_reason;
 
-  // Send the reply to Telegram
+  const continueKeyboard = {
+    keyboard: [[{ text: "Continue" }, { text: "Ok, thanks!" }]],
+    one_time_keyboard: true,
+    resize_keyboard: true,
+  };
+  const reply_markup = finishReason === "length" ? continueKeyboard : {};
   await sendTelegramMessage({
     telegramApiToken,
     chat_id: chatId,
     text: gptMessage.content ?? "No content in reply",
-    reply_markup:
-      finishReason === "length"
-        ? {
-            keyboard: [[{ text: "Continue" }, { text: "Ok, thanks!" }]],
-            one_time_keyboard: true,
-            resize_keyboard: true,
-          }
-        : {},
+    reply_markup,
   });
 
-  // Update the conversation history
   await updateConversationMessages({
     conversationsKv,
     conversationId,
