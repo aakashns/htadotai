@@ -47,13 +47,13 @@ export async function getConversation({
   };
 }
 
-interface UpdateConversationArgs {
+type UpdateConversationArgs = {
   conversationsKv?: KVNamespace;
   conversationId: string;
   newMessages: ConversationMessage[];
   expirationTtl: number;
   maxContextChars: number;
-}
+};
 
 export async function updateConversationMessages({
   conversationsKv,

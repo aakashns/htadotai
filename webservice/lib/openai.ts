@@ -31,14 +31,14 @@ export type GPTRequestBody = {
   user?: string;
 };
 
-interface GPTReponseBody {
+type GPTReponseBody = {
   id: string;
   object: "chat.completion";
   created: number;
   model: string;
   choices: { index: number; message: GPTMessage; finish_reason: string }[];
   usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
-}
+};
 
 export function sanitizeMessages(messages: GPTMessage[]): GPTMessage[] {
   return messages.map(({ role, content, name, function_call }) => {
