@@ -169,11 +169,7 @@ async function getWhatsAppMessageText({
   }
 }
 
-interface ProcessWhatsAppWebhookArgs {
-  config: Config;
-  waitUntil: WaitUntil;
-  requestValue: WhatsAppChangeValue;
-}
+type ProcessWhatsAppWebhookArgs = { config: Config; waitUntil: WaitUntil; requestValue: WhatsAppChangeValue };
 
 export async function processWhatsAppWebhook({ config, waitUntil, requestValue }: ProcessWhatsAppWebhookArgs) {
   const phoneNumberId = requestValue.metadata.phone_number_id;
