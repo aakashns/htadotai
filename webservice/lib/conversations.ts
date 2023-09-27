@@ -1,36 +1,20 @@
 import { GPTMessage } from "./openai";
 
-export type ConversationMessage = GPTMessage & {
-  created?: number;
-};
+export type ConversationMessage = GPTMessage & { created?: number };
 
-export type Conversation = {
-  messages: ConversationMessage[];
-};
+export type Conversation = { messages: ConversationMessage[] };
 
-const EMPTY_CONVERSATION: Conversation = {
-  messages: [],
-};
+const EMPTY_CONVERSATION: Conversation = { messages: [] };
 
-type KeepLatestMessagesArgs = {
-  messages: ConversationMessage[];
-  expirationTtl: number;
-  maxContextChars: number;
-};
+type KeepLatestMessagesArgs = { messages: ConversationMessage[]; expirationTtl: number; maxContextChars: number };
 
-export function keepLatestMessages({
-  messages,
-  expirationTtl,
-  maxContextChars,
-}: KeepLatestMessagesArgs) {
+export function keepLatestMessages({ messages, expirationTtl, maxContextChars }: KeepLatestMessagesArgs) {
   const cutoffDate = Date.now() - expirationTtl * 1000;
   let totalContentLength = 0;
   let result = [];
-
   for (let i = messages.length - 1; i >= 0; i--) {
     const message = messages[i];
     const contentLength = message.content?.length || 0;
-
     if (!message.created || message.created < cutoffDate) {
       break;
     } else if (totalContentLength + contentLength <= maxContextChars) {
@@ -40,7 +24,6 @@ export function keepLatestMessages({
       break;
     }
   }
-
   return result.sort((a, b) => (a.created || 0) - (b.created || 0));
 }
 
@@ -57,16 +40,10 @@ export async function getConversation({
   expirationTtl,
   maxContextChars,
 }: GetConversationArgs) {
-  const conversation =
-    (await conversationsKv?.get<Conversation>(conversationId, "json")) ??
-    EMPTY_CONVERSATION;
+  const conversation = (await conversationsKv?.get<Conversation>(conversationId, "json")) ?? EMPTY_CONVERSATION;
   return {
     ...conversation,
-    messages: keepLatestMessages({
-      messages: conversation.messages,
-      expirationTtl,
-      maxContextChars,
-    }),
+    messages: keepLatestMessages({ messages: conversation.messages, expirationTtl, maxContextChars }),
   };
 }
 
@@ -77,15 +54,8 @@ type PutConversationArgs = {
   expirationTtl: number;
 };
 
-async function putConversation({
-  conversationsKv,
-  conversationId,
-  conversation,
-  expirationTtl,
-}: PutConversationArgs) {
-  await conversationsKv?.put(conversationId, JSON.stringify(conversation), {
-    expirationTtl,
-  });
+async function putConversation({ conversationsKv, conversationId, conversation, expirationTtl }: PutConversationArgs) {
+  await conversationsKv?.put(conversationId, JSON.stringify(conversation), { expirationTtl });
 }
 
 interface UpdateConversationArgs {
@@ -103,58 +73,21 @@ export async function updateConversationMessages({
   expirationTtl,
   maxContextChars,
 }: UpdateConversationArgs) {
-  const conversation =
-    (await conversationsKv?.get<Conversation>(conversationId, "json")) ??
-    EMPTY_CONVERSATION;
-  const updatedMessages = keepLatestMessages({
-    messages: [...conversation.messages, ...newMessages],
-    expirationTtl: expirationTtl * 1000,
-    maxContextChars,
-  });
-  const newConversation = {
-    ...conversation,
-    messages: updatedMessages,
-  };
-
-  await putConversation({
-    conversationsKv,
-    conversationId,
-    conversation: newConversation,
-    expirationTtl,
-  });
+  const conversation = (await conversationsKv?.get<Conversation>(conversationId, "json")) ?? EMPTY_CONVERSATION;
+  const allMessages = [...conversation.messages, ...newMessages];
+  const latestMessages = keepLatestMessages({ messages: allMessages, expirationTtl, maxContextChars });
+  const newConversation = { ...conversation, messages: latestMessages };
+  await putConversation({ conversationsKv, conversationId, conversation: newConversation, expirationTtl });
 }
 
-type DeleteConversationArgs = {
-  conversationsKv?: KVNamespace;
-  conversationId: string;
-};
+type ShouldRateLimitOptions = { window: number; maxMessages: number; messages: ConversationMessage[] };
 
-export async function deleteConversation({
-  conversationsKv,
-  conversationId,
-}: DeleteConversationArgs) {
-  await conversationsKv?.delete(conversationId);
-}
-
-type ShouldRateLimitOptions = {
-  window: number;
-  maxMessages: number;
-  messages: ConversationMessage[];
-};
-
-export function shouldRateLimit({
-  window,
-  maxMessages,
-  messages,
-}: ShouldRateLimitOptions): boolean {
+export function shouldRateLimit({ window, maxMessages, messages }: ShouldRateLimitOptions): boolean {
   const currentTimestamp = Date.now();
   let recentMessagesCount = 0;
   for (let i = messages.length - 1; i >= 0; i--) {
     const message = messages[i];
-    if (
-      !message.created ||
-      message.created < currentTimestamp - window * 1000
-    ) {
+    if (!message.created || message.created < currentTimestamp - window * 1000) {
       break;
     }
     recentMessagesCount++;
