@@ -62,7 +62,13 @@ export async function generateGPTReply({ openaiApiKey, gptApiUrl, body }: Genera
   return response.json<GPTReponseBody>();
 }
 
-type TranscribeAudioArgs = { transcribeApiUrl: string; openaiApiKey: string; audioBlob: Blob; language?: string };
+type TranscribeAudioArgs = {
+  transcribeApiUrl: string;
+  openaiApiKey: string;
+  audioBlob: Blob;
+  language?: string;
+  prompt?: string;
+};
 type TranscribeAudioResponse = { text: string };
 
 export async function transcribeAudio({
