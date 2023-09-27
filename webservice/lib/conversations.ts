@@ -47,17 +47,6 @@ export async function getConversation({
   };
 }
 
-type PutConversationArgs = {
-  conversationsKv?: KVNamespace;
-  conversationId: string;
-  conversation: Conversation;
-  expirationTtl: number;
-};
-
-async function putConversation({ conversationsKv, conversationId, conversation, expirationTtl }: PutConversationArgs) {
-  await conversationsKv?.put(conversationId, JSON.stringify(conversation), { expirationTtl });
-}
-
 interface UpdateConversationArgs {
   conversationsKv?: KVNamespace;
   conversationId: string;
@@ -77,7 +66,7 @@ export async function updateConversationMessages({
   const allMessages = [...conversation.messages, ...newMessages];
   const latestMessages = keepLatestMessages({ messages: allMessages, expirationTtl, maxContextChars });
   const newConversation = { ...conversation, messages: latestMessages };
-  await putConversation({ conversationsKv, conversationId, conversation: newConversation, expirationTtl });
+  await conversationsKv?.put(conversationId, JSON.stringify(newConversation), { expirationTtl });
 }
 
 type ShouldRateLimitOptions = { window: number; maxMessages: number; messages: ConversationMessage[] };
