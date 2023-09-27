@@ -77,7 +77,6 @@ type DownloadWhatsAppMediaArgs = { whatsAppApiToken: string; mediaUrl: string };
 
 async function downloadWhatsAppMedia({ whatsAppApiToken, mediaUrl }: DownloadWhatsAppMediaArgs) {
   const response = await fetch(mediaUrl, { method: "GET", headers: { Authorization: `Bearer ${whatsAppApiToken}` } });
-
   return response.blob();
 }
 
