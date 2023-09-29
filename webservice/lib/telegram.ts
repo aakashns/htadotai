@@ -166,6 +166,7 @@ export async function processTelegramWebhook({ config, waitUntil, requestBody }:
         role: "user",
         length: messageText?.length ?? 0,
         type: getTelegramMessageType(telegramMessage),
+        language: telegramMessage.from?.language_code,
       },
     })
   );
@@ -228,6 +229,7 @@ export async function processTelegramWebhook({ config, waitUntil, requestBody }:
         role: "assistant",
         length: gptMessage.content?.length ?? 0,
         type: "text",
+        language: telegramMessage.from?.language_code,
       },
     })
   );
