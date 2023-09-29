@@ -7,7 +7,7 @@ import {
   makeConversationId,
   shouldRateLimit,
 } from "./conversations";
-import { logMessage } from "./analytics";
+import { formatDateWithTimezone, logMessage } from "./analytics";
 
 type TelegramMessage = {
   message_id: number;
@@ -163,7 +163,7 @@ export async function processTelegramWebhook({ config, waitUntil, requestBody }:
         platform: "telegram",
         message_id: "telegram:" + telegramMessage.message_id.toString(),
         chat_id: chatId.toString(),
-        sent_at: telegramMessage.date,
+        sent_at: formatDateWithTimezone(new Date(telegramMessage.date * 1000)),
         role: "user",
         length: messageText?.length ?? 0,
         type: getTelegramMessageType(telegramMessage),
@@ -226,7 +226,7 @@ export async function processTelegramWebhook({ config, waitUntil, requestBody }:
         platform: "telegram",
         message_id: "telegram:" + sendTelegramResult.message_id.toString(),
         chat_id: chatId.toString(),
-        sent_at: Math.floor(gptMessage.created / 1000),
+        sent_at: formatDateWithTimezone(new Date(gptMessage.created)),
         role: "assistant",
         length: gptMessage.content?.length ?? 0,
         type: "text",
