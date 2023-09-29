@@ -27,7 +27,6 @@ export function formatDateWithTimezone(date: Date) {
 }
 
 export type AnalyticsMessage = {
-  message_id: string;
   chat_id: string;
   platform: "whatsapp" | "telegram";
   sent_at: string;

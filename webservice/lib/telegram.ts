@@ -161,7 +161,6 @@ export async function processTelegramWebhook({ config, waitUntil, requestBody }:
       webhookSecret: config.ANALYTICS_WEBHOOK_SECRET,
       message: {
         platform: "telegram",
-        message_id: "telegram:" + telegramMessage.message_id.toString(),
         chat_id: chatId.toString(),
         sent_at: formatDateWithTimezone(new Date(telegramMessage.date * 1000)),
         role: "user",
@@ -203,7 +202,7 @@ export async function processTelegramWebhook({ config, waitUntil, requestBody }:
     resize_keyboard: true,
   };
   const reply_markup = finishReason === "length" ? continueKeyboard : {};
-  const { result: sendTelegramResult } = await sendTelegramMessage({
+  await sendTelegramMessage({
     telegramApiToken,
     chat_id: chatId,
     text: gptMessage.content ?? "No content in reply",
@@ -224,7 +223,6 @@ export async function processTelegramWebhook({ config, waitUntil, requestBody }:
       webhookSecret: config.ANALYTICS_WEBHOOK_SECRET,
       message: {
         platform: "telegram",
-        message_id: "telegram:" + sendTelegramResult.message_id.toString(),
         chat_id: chatId.toString(),
         sent_at: formatDateWithTimezone(new Date(gptMessage.created)),
         role: "assistant",
