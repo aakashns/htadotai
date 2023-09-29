@@ -7,6 +7,9 @@ type RequiredEnv = {
 
   WHATSAPP_API_TOKEN: string;
   WHATSAPP_WEBHOOK_SECRET: string;
+
+  ANALYTICS_URL?: string;
+  ANALYTICS_WEBHOOK_SECRET?: string;
 };
 
 const DEFAULT_TELEGRAM_GPT_SYSTEM_PROMPT = `You are HTA - a personal AI assistant. Users 
