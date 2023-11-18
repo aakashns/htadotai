@@ -10,4 +10,4 @@ Currently, I can assist you by answering questions, providing information, and h
 
 I am fully open-source and self-hostable, so you can check out the source code to see how I work. Start chatting with me now!
 
-[Chat on Telegram](https://t.me/htadotaibot)
+
